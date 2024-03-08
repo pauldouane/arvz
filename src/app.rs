@@ -93,7 +93,6 @@ impl App {
           }
         }
       }
-
       while let Ok(action) = action_rx.try_recv() {
         if action != Action::Tick && action != Action::Render {
           log::debug!("{action:?}");
