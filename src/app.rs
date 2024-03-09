@@ -5,6 +5,7 @@ use ratatui::prelude::Rect;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
+use tokio::time::Instant;
 
 use crate::{
   action::Action,
@@ -16,6 +17,7 @@ use crate::{
 use crate::components::ascii::Ascii;
 use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
+use crate::components::status_bar::StatusBar;
 use crate::components::table_dags_runs::{TableDagRuns};
 use crate::models::dag_run::DagRun;
 use crate::models::dag_runs::{DagRuns};
@@ -28,32 +30,22 @@ pub struct App {
   pub should_suspend: bool,
   pub mode: Mode,
   pub last_tick_key_events: Vec<KeyEvent>,
+  pub last_dag_runs_call: Instant,
   pub dag_runs: DagRuns,
   client: Client,
   context_information: ContextInformation,
   shortcut: Shortcut,
   ascii: Ascii,
   table_dag_runs: TableDagRuns,
+  status_bar: StatusBar,
 }
 
 impl App {
   pub async fn new(tick_rate: f64, frame_rate: f64) -> Result<Self> {
     let fps = FpsCounter::default();
     let config = Config::new()?;
-    let mode = Mode::Home;
+    let mode = Mode::Context;
     let client = Client::new();
-
-    let user_name = "root".to_string();
-    let password: Option<String> = Some("root".to_string());
-
-    let dag_runs: DagRuns = client
-        .get("http://172.24.164.162:8080/api/v1/dags/~/dagRuns")
-        .basic_auth(user_name, password)
-        .send()
-        .await?
-        .json::<DagRuns>()
-        .await?;
-
 
     Ok(Self {
       tick_rate,
@@ -63,22 +55,27 @@ impl App {
       config,
       mode,
       last_tick_key_events: Vec::new(),
-      dag_runs,
+      last_dag_runs_call: Instant::now(),
+      dag_runs: DagRuns::new(&client).await?,
       client,
       context_information: ContextInformation::new(),
       shortcut: Shortcut::new(),
       ascii: Ascii::new(),
       table_dag_runs: TableDagRuns::new(),
+      status_bar: StatusBar::new(),
     })
   }
 
   pub async fn run(&mut self) -> Result<()> {
     let (action_tx, mut action_rx) = mpsc::unbounded_channel();
 
+    // Set the initial dag_runs state for the table widget
+    self.table_dag_runs.set_dag_runs(self.dag_runs.clone());
     let mut tui = tui::Tui::new()?;
     // tui.mouse(true);
     tui.enter()?;
 
+    // Register action and config handlers for all components
     self.context_information.register_action_handler(action_tx.clone())?;
     self.context_information.register_config_handler(self.config.clone())?;
 
@@ -91,12 +88,18 @@ impl App {
     self.table_dag_runs.register_action_handler(action_tx.clone())?;
     self.table_dag_runs.register_config_handler(self.config.clone())?;
 
+    // Init the area for all components
     self.context_information.init(tui.size()?)?;
     self.shortcut.init(tui.size()?)?;
     self.ascii.init(tui.size()?)?;
     self.table_dag_runs.init(tui.size()?)?;
 
     loop {
+      if self.last_dag_runs_call.elapsed().as_secs() == 3 {
+        self.dag_runs.set_dag_runs(&self.client).await?;
+        self.last_dag_runs_call = Instant::now();
+        self.table_dag_runs.set_dag_runs(self.dag_runs.clone());
+      }
       if let Some(e) = tui.next().await {
         match e {
           tui::Event::Quit => action_tx.send(Action::Quit)?,
@@ -177,9 +180,9 @@ impl App {
               let main_chunk = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(vec![
-                  Constraint::Percentage(25),
-                  Constraint::Percentage(70),
-                  Constraint::Percentage(5),
+                  Constraint::Percentage(15),
+                  Constraint::Percentage(81),
+                  Constraint::Percentage(4),
                 ])
                 .split(f.size());
               let top_chunk = Layout::default()
@@ -196,6 +199,12 @@ impl App {
                   Constraint::Percentage(100),
                 ])
                 .split(main_chunk[1]);
+              let bottom_chunk = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(vec![
+                  Constraint::Percentage(100),
+                ])
+                .split(main_chunk[2]);
 
                 let r = self.context_information.draw(f, top_chunk[0]);
                 if let Err(e) = r {
@@ -216,6 +225,11 @@ impl App {
                 if let Err(e) = r {
                   action_tx.send(Action::Error(format!("Failed to draw: {:?}", e))).unwrap();
                 }
+
+                let r = self.status_bar.draw(f, bottom_chunk[0]);
+                if let Err(e) = r {
+                  action_tx.send(Action::Error(format!("Failed to draw: {:?}", e))).unwrap();
+                }
             })?;
           },
           _ => {},
@@ -223,6 +237,7 @@ impl App {
         if let Some(action) = self.context_information.update(action.clone())? {
           action_tx.send(action)?
         };
+        self.context_information.register_context_information(&self.dag_runs);
 
         if let Some(action) = self.shortcut.update(action.clone())? {
           action_tx.send(action)?

@@ -17,5 +17,6 @@ pub enum Action {
   Refresh,
   Error(String),
   Help,
-  Down
+  Next,
+  Previous,
 }
