@@ -11,23 +11,31 @@ use crate::{
     action::Action,
     config::{Config, KeyBindings},
 };
-use crate::components::bottom::Bottom;
-use crate::components::center::Center;
-use crate::components::top::Top;
 
 #[derive(Default)]
-pub struct ContextInformation {
+pub struct Ascii {
     command_tx: Option<UnboundedSender<Action>>,
+    ascii: &'static str,
     config: Config,
 }
 
-impl ContextInformation {
+impl Ascii {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            command_tx: None,
+            // Store ascii art to display
+            ascii: r"
+  __ _ _ ____   ______
+ / _` | '__\ \ / /_  /
+| (_| | |   \ V / / /
+ \__,_|_|    \_/ /___|
+            ",
+            config: Config::default(),
+        }
     }
 }
 
-impl Component for ContextInformation {
+impl Component for Ascii {
     fn register_action_handler(&mut self, tx: UnboundedSender<Action>) -> Result<()> {
         self.command_tx = Some(tx);
         Ok(())
@@ -46,9 +54,8 @@ impl Component for ContextInformation {
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-        let block = Block::default()
-            .title("Context Information")
-            .borders(Borders::ALL);
+        let block = Paragraph::new(self.ascii)
+            .block(Block::new());
         f.render_widget(block, area);
         Ok(())
     }

@@ -10,6 +10,7 @@ pub mod config;
 pub mod mode;
 pub mod tui;
 pub mod utils;
+pub mod models;
 
 use clap::Parser;
 use cli::Cli;
@@ -19,6 +20,7 @@ use crate::{
   app::App,
   utils::{initialize_logging, initialize_panic_handler, version},
 };
+use crate::models::dag_runs::DagRuns;
 
 async fn tokio_main() -> Result<()> {
   initialize_logging()?;
@@ -26,9 +28,8 @@ async fn tokio_main() -> Result<()> {
   initialize_panic_handler()?;
 
   let args = Cli::parse();
-  let mut app = App::new(args.tick_rate, args.frame_rate)?;
+  let mut app = App::new(args.tick_rate, args.frame_rate).await?;
   app.run().await?;
-
   Ok(())
 }
 

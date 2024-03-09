@@ -1,8 +1,11 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, time::Duration, vec};
 
 use color_eyre::eyre::Result;
+use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{prelude::*, widgets::*};
+use ratatui::symbols::border;
+use ratatui::widgets::block::{Position, Title};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -11,19 +14,23 @@ use crate::{
     action::Action,
     config::{Config, KeyBindings},
 };
-use crate::components::bottom::Bottom;
-use crate::components::center::Center;
-use crate::components::top::Top;
+use crate::config::key_event_to_string;
+use crate::mode::Mode;
 
 #[derive(Default)]
 pub struct Shortcut {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
+    mode: Mode,
 }
 
 impl Shortcut {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn register_mode(&mut self, mode: Mode) {
+        self.mode = mode;
     }
 }
 
@@ -46,9 +53,20 @@ impl Component for Shortcut {
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-        let block = Block::default()
-            .title("Shortcut")
-            .borders(Borders::ALL);
+        // Loop through keybindings by mode and display them
+        let mut text = vec![];
+        for (shortcut, action) in &*self.config.keybindings.get(&self.mode).unwrap() {
+            text.push(
+                Line::from(vec![
+                    Span::styled(format!("<{}>", key_event_to_string(&shortcut[0])), Style::new().blue().bold()),
+                    Span::styled(format!(" {}", action), Style::new()),
+                ]),
+            );
+        }
+        let block = Paragraph::new(text)
+            .block(Block::new())
+            .style(Style::new().white().on_black())
+            .wrap(Wrap { trim: true });
         f.render_widget(block, area);
         Ok(())
     }
