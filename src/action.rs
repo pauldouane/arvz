@@ -17,6 +17,8 @@ pub enum Action {
   Refresh,
   Error(String),
   Help,
+  Context,
   Next,
   Previous,
+  Search,
 }

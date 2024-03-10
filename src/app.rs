@@ -15,6 +15,7 @@ use crate::{
   tui,
 };
 use crate::components::ascii::Ascii;
+use crate::components::command_search::CommandSearch;
 use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
@@ -38,6 +39,7 @@ pub struct App {
   ascii: Ascii,
   table_dag_runs: TableDagRuns,
   status_bar: StatusBar,
+  command_search: CommandSearch,
 }
 
 impl App {
@@ -63,6 +65,7 @@ impl App {
       ascii: Ascii::new(),
       table_dag_runs: TableDagRuns::new(),
       status_bar: StatusBar::new(),
+      command_search: CommandSearch::new(),
     })
   }
 
@@ -177,13 +180,20 @@ impl App {
           },
           Action::Render => {
             tui.draw(|f| {
+              // Generate constriants for the main layout
+              let constraints = vec![
+                Constraint::Percentage(15),
+                if self.mode == Mode::Search {
+                  Constraint::Percentage(10)
+                } else { Constraint::Percentage(0) },
+                Constraint::Percentage(
+                    if self.mode == Mode::Search { 71 } else { 81 }
+                ),
+                Constraint::Percentage(4),
+              ];
               let main_chunk = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints(vec![
-                  Constraint::Percentage(15),
-                  Constraint::Percentage(81),
-                  Constraint::Percentage(4),
-                ])
+                .constraints(constraints)
                 .split(f.size());
               let top_chunk = Layout::default()
                 .direction(Direction::Horizontal)
@@ -193,22 +203,35 @@ impl App {
                   Constraint::Percentage(20),
                 ])
                 .split(main_chunk[0]);
-              let center_chunk = Layout::default()
+              let search_chunk = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(vec![
                   Constraint::Percentage(100),
                 ])
                 .split(main_chunk[1]);
-              let bottom_chunk = Layout::default()
+              let center_chunk = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(vec![
                   Constraint::Percentage(100),
                 ])
                 .split(main_chunk[2]);
+              let bottom_chunk = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints(vec![
+                  Constraint::Percentage(100),
+                ])
+                .split(main_chunk[3]);
 
                 let r = self.context_information.draw(f, top_chunk[0]);
                 if let Err(e) = r {
                   action_tx.send(Action::Error(format!("Failed to draw: {:?}", e))).unwrap();
+                }
+
+                if self.mode == Mode::Search {
+                  let r = self.command_search.draw(f, search_chunk[0]);
+                  if let Err(e) = r {
+                    action_tx.send(Action::Error(format!("Failed to draw: {:?}", e))).unwrap();
+                  }
                 }
 
                 let r = self.shortcut.draw(f, top_chunk[1]);
@@ -232,6 +255,12 @@ impl App {
                 }
             })?;
           },
+          Action::Search => {
+            self.mode = Mode::Search;
+          }
+          Action::Context => {
+              self.mode = Mode::Context;
+          }
           _ => {},
         }
         if let Some(action) = self.context_information.update(action.clone())? {

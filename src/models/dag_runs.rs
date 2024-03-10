@@ -2,7 +2,10 @@ use reqwest::Client;
 use serde::Deserialize;
 use crate::models::dag_run::DagRun;
 use color_eyre::eyre::Result;
+use color_eyre::owo_colors::OwoColorize;
+use ratatui::style::{Style, Stylize};
 use ratatui::widgets::Row;
+use crate::style;
 
 #[derive(Deserialize, Debug, Default, Clone)]
 pub struct DagRuns{
@@ -16,7 +19,7 @@ impl DagRuns {
         let password: Option<String> = Some("root".to_string());
 
         let dag_runs: DagRuns = client
-            .get("http://172.24.169.198:8080/api/v1/dags/~/dagRuns")
+            .get("http://172.24.169.198:8080/api/v1/dags/~/dagRuns?order_by=-start_date")
             .basic_auth(user_name, password)
             .send()
             .await?
@@ -30,7 +33,7 @@ impl DagRuns {
         let user_name = "root".to_string();
         let password: Option<String> = Some("root".to_string());
         let dag_runs: DagRuns = client
-            .get("http://172.24.169.198:8080/api/v1/dags/~/dagRuns")
+            .get("http://172.24.169.198:8080/api/v1/dags/~/dagRuns?order_by=-start_date")
             .basic_auth(user_name, password)
             .send()
             .await?
@@ -77,7 +80,9 @@ impl DagRuns {
                 dag_run.data_interval_end.clone(),
                 dag_run.run_type.clone(),
                 dag_run.external_trigger.to_string().clone(),
-            ]));
+            ]).style(
+                style::get_style_row_context(&dag_run.state)
+            ));
         }
         rows
     }

@@ -94,8 +94,7 @@ impl Component for TableDagRuns {
                     .bottom_margin(0)
             )
             .block(Block::default().title(title).title_alignment(Alignment::Center).borders(Borders::ALL).border_style(Style::default().fg(Color::LightCyan)))
-            .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
-            .highlight_symbol(">>");
+            .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
         f.render_stateful_widget(table, area, &mut self.table_state);
         Ok(())
