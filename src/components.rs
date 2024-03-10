@@ -8,6 +8,7 @@ use crate::{
   config::Config,
   tui::{Event, Frame},
 };
+use crate::mode::Mode;
 
 pub mod fps;
 pub mod context_informations;
@@ -75,6 +76,19 @@ pub trait Component {
       _ => None,
     };
     Ok(r)
+  }
+  /// Handle mode changes and update the state of the component if necessary.
+  ///
+  /// # Arguments
+  ///
+  /// * `mode` - The mode to be handled.
+  ///
+  /// # Returns
+  ///
+  /// * `Result<()>` - An Ok result or an error.
+  #[allow(unused_variables)]
+  fn handle_mode(&mut self, mode: Mode) -> Result<()> {
+    Ok(())
   }
   /// Handle key events and produce actions if necessary.
   ///

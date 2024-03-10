@@ -1,6 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use color_eyre::eyre::Result;
+use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{prelude::*, widgets::*};
 use serde::{Deserialize, Serialize};
@@ -55,7 +56,8 @@ impl Component for Ascii {
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
         let block = Paragraph::new(self.ascii)
-            .block(Block::new());
+            .block(Block::new())
+            .style(Style::default().fg(Color::Magenta));
         f.render_widget(block, area);
         Ok(())
     }

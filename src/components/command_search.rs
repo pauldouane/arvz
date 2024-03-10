@@ -16,21 +16,24 @@ use crate::{
 };
 use crate::config::key_event_to_string;
 use crate::mode::Mode;
+use crate::utils::get_user_input_by_key;
 
 #[derive(Default)]
 pub struct CommandSearch {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
     mode: Mode,
+    user_search: Option<String>,
 }
 
 impl CommandSearch {
     pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn register_mode(&mut self, mode: Mode) {
-        self.mode = mode;
+        Self {
+            command_tx: None,
+            config: Config::default(),
+            mode: Mode::DagRun,
+            user_search: None,
+        }
     }
 }
 
@@ -45,19 +48,37 @@ impl Component for CommandSearch {
         Ok(())
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        match action {
-            _ => {},
+    fn handle_mode(&mut self, mode: Mode) -> Result<()> {
+        self.mode = mode;
+        Ok(())
+    }
+
+    fn handle_key_events(&mut self, key: KeyEvent) -> Result<Option<Action>> {
+        if self.mode == Mode::Search {
+            get_user_input_by_key(key.code, &mut self.user_search);
         }
+        Ok(None)
+    }
+
+    fn update(&mut self, action: Action) -> Result<Option<Action>> {
         Ok(None)
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
         // draw the search bar
-        let search_bar = Block::default()
-            .title("Search")
-            .borders(Borders::ALL)
-            .style(Style::default().fg(Color::Gray));
+        let line = Line::from(vec![
+            if let Some(search) = &self.user_search {
+                Span::raw(search)
+            } else {
+                Span::raw("")
+            },
+        ]);
+        let search_bar = Paragraph::new(line)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Green))
+            );
         f.render_widget(search_bar, area);
         Ok(())
     }

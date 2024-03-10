@@ -1,15 +1,17 @@
 {
   "keybindings": {
-    "Context": {
+    "DagRun": {
       "<q>": "Quit", // Quit the application
       "<j>": "Next", // Move to the next item
       "<k>": "Previous", // Move to the previous item
       "<down>": "Next", // Move to the next item
       "<up>": "Previous", // Move to the previous item
       "</>": "Search", // Search for an item
+      "<s>": "Search", // Search for an item
     },
     "Search": {
-      "<Esc>": "Context", // Quit search mode
+      "<Esc>": "DagRun", // Quit search mode
+      "<Enter>": "DagRun",
     }
   }
 }

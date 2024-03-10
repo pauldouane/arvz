@@ -46,9 +46,9 @@ impl App {
   pub async fn new(tick_rate: f64, frame_rate: f64) -> Result<Self> {
     let fps = FpsCounter::default();
     let config = Config::new()?;
-    let mode = Mode::Context;
+    let mode = Mode::DagRun;
     let client = Client::new();
-
+    println!("Fetching dag runs...");
     Ok(Self {
       tick_rate,
       frame_rate,
@@ -138,6 +138,9 @@ impl App {
           if let Some(action) = self.ascii.handle_events(Some(e.clone()))? {
               action_tx.send(action)?;
           }
+          if let Some(action) = self.command_search.handle_events(Some(e.clone()))? {
+            action_tx.send(action)?;
+          }
           if let Some(action) = self.table_dag_runs.handle_events(Some(e.clone()))? {
               action_tx.send(action)?;
           }
@@ -180,16 +183,15 @@ impl App {
           },
           Action::Render => {
             tui.draw(|f| {
-              // Generate constriants for the main layout
               let constraints = vec![
-                Constraint::Percentage(15),
+                Constraint::Length(6),
                 if self.mode == Mode::Search {
-                  Constraint::Percentage(10)
+                  Constraint::Length(3)
                 } else { Constraint::Percentage(0) },
-                Constraint::Percentage(
-                    if self.mode == Mode::Search { 71 } else { 81 }
+                Constraint::Fill(
+                  1
                 ),
-                Constraint::Percentage(4),
+                Constraint::Length(1),
               ];
               let main_chunk = Layout::default()
                 .direction(Direction::Vertical)
@@ -198,9 +200,9 @@ impl App {
               let top_chunk = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(vec![
-                  Constraint::Percentage(40),
-                  Constraint::Percentage(40),
-                  Constraint::Percentage(20),
+                  Constraint::Length(50),
+                  Constraint::Fill(1),
+                  Constraint::Length(22),
                 ])
                 .split(main_chunk[0]);
               let search_chunk = Layout::default()
@@ -258,8 +260,8 @@ impl App {
           Action::Search => {
             self.mode = Mode::Search;
           }
-          Action::Context => {
-              self.mode = Mode::Context;
+          Action::DagRun => {
+              self.mode = Mode::DagRun;
           }
           _ => {},
         }
@@ -277,9 +279,15 @@ impl App {
           action_tx.send(action)?
         };
 
+        if let Some(action) = self.command_search.update(action.clone())? {
+          action_tx.send(action)?
+        };
+        self.command_search.handle_mode(self.mode)?;
+
         if let Some(action) = self.table_dag_runs.update(action.clone())? {
           action_tx.send(action)?
         };
+        self.table_dag_runs.handle_mode(self.mode)?;
       }
       if self.should_suspend {
         tui.suspend()?;

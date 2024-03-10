@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use color_eyre::eyre::Result;
+use crossterm::event::KeyCode;
 use directories::ProjectDirs;
 use lazy_static::lazy_static;
 use tracing::error;
@@ -114,6 +115,28 @@ pub fn initialize_logging() -> Result<()> {
     .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
   tracing_subscriber::registry().with(file_subscriber).with(ErrorLayer::default()).init();
   Ok(())
+}
+
+pub fn get_user_input_by_key(key: KeyCode, target: &mut Option<String>) {
+  match key {
+    KeyCode::Char(ch) => {
+        if let Some(s) = target {
+            s.push(ch);
+        } else {
+            *target = Some(ch.to_string());
+        }
+    }
+    KeyCode::Backspace => {
+        if let Some(s) = target {
+          if s.len() == 1 {
+            *target = None;
+          } else {
+            s.pop();
+          }
+        }
+    }
+    _ => {}
+  }
 }
 
 /// Similar to the `std::dbg!` macro, but generates `tracing` events rather

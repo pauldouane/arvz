@@ -69,17 +69,18 @@ impl Component for ContextInformation {
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+        // Align the value on the right to the same starting point
         let text = vec![
             Line::from(vec![
-                Span::styled("Dag Runs Number : ", Style::new().yellow()),
+                Span::styled("Dag Runs Number    : ", Style::new().yellow()),
                 Span::raw(format!("{}", self.total_dag_runs)),
             ]),
             Line::from(vec![
-                Span::styled("Dag Runs Running : ", Style::new().yellow()),
+                Span::styled("Dag Runs Running   : ", Style::new().yellow()),
                 Span::raw(format!("{}", self.total_dag_runs_running)),
             ]),
             Line::from(vec![
-                Span::styled("Dag Runs Failed : ", Style::new().yellow()),
+                Span::styled("Dag Runs Failed    : ", Style::new().yellow()),
                 Span::raw(format!("{}", self.total_dag_runs_failed)),
             ]),
             Line::from(vec![
@@ -87,18 +88,17 @@ impl Component for ContextInformation {
                 Span::raw(format!("{}", self.total_dag_runs_scheduled)),
             ]),
             Line::from(vec![
-                Span::styled("Dag Runs Success : ", Style::new().yellow()),
-                Span::raw(format!("{}", self.total_dag_runs_success)),
+                Span::styled("Dag Runs Queued    : ", Style::new().yellow()),
+                Span::raw(format!("{}", self.total_dag_runs_queued)),
             ]),
             Line::from(vec![
-                Span::styled("Dag Runs Queued : ", Style::new().yellow()),
-                Span::raw(format!("{}", self.total_dag_runs_queued)),
+                Span::styled("ARVZ version       : ", Style::new().yellow()),
+                Span::raw(format!("{}", "0.1.0")),
             ]),
         ];
         let block = Paragraph::new(text)
             .block(Block::new())
-            .style(Style::new().white().on_black())
-            .wrap(Wrap { trim: true });
+            .style(Style::new().white().on_black());
         f.render_widget(block, area);
         Ok(())
     }

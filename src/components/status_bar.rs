@@ -8,6 +8,7 @@ use ratatui::symbols::border;
 use ratatui::widgets::block::{Position, Title};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
+use tracing_subscriber::fmt::format;
 
 use super::{Component, Frame};
 use crate::{
@@ -29,7 +30,7 @@ impl StatusBar {
         Self {
             command_tx: None,
             config: Config::default(),
-            mode: Mode::Context,
+            mode: Mode::DagRun,
         }
     }
 
@@ -63,7 +64,7 @@ impl Component for StatusBar {
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(9)])
             .split(area);
-        let text = Text::from("<context>");
+        let text = Text::from(format!("{:?}", self.mode));
         let block = Paragraph::new(text).alignment(Alignment::Center).block(Block::new().style(Style::default().bg(Color::Yellow)));
         f.render_widget(block,chunks[0]);
         Ok(())

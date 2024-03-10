@@ -19,13 +19,14 @@ impl DagRuns {
         let password: Option<String> = Some("root".to_string());
 
         let dag_runs: DagRuns = client
-            .get("http://172.24.169.198:8080/api/v1/dags/~/dagRuns?order_by=-start_date")
+            .get("http://172.19.223.158:8080/api/v1/dags/~/dagRuns?order_by=-start_date")
             .basic_auth(user_name, password)
             .send()
             .await?
             .json::<DagRuns>()
             .await?;
 
+        println!("DagRuns: {:#?}", dag_runs);
         Ok(dag_runs)
     }
 
@@ -33,7 +34,7 @@ impl DagRuns {
         let user_name = "root".to_string();
         let password: Option<String> = Some("root".to_string());
         let dag_runs: DagRuns = client
-            .get("http://172.24.169.198:8080/api/v1/dags/~/dagRuns?order_by=-start_date")
+            .get("http://172.19.223.158:8080/api/v1/dags/~/dagRuns?order_by=-start_date")
             .basic_auth(user_name, password)
             .send()
             .await?
@@ -67,6 +68,29 @@ impl DagRuns {
 
     pub fn get_count_dag_run_queued(&self) -> u32 {
         self.dag_runs.iter().filter(|dag_run| dag_run.state == "queued").count() as u32
+    }
+
+    pub fn filter_runs_by_dag_id<'a>(&'a self, dag_id: &str) -> Vec<&'a DagRun> {
+        self.dag_runs.iter().filter(|dag_run| dag_run.dag_id.contains(dag_id)).collect::<Vec<&'a DagRun>>()
+    }
+
+    pub fn get_dag_runs_rows_filtered(&self, dag_id: &str) -> Vec<Row> {
+        let mut rows: Vec<Row> = Vec::new();
+        let filtered_dag_runs: Vec<&DagRun>= self.filter_runs_by_dag_id(dag_id);
+
+        for dag_run in filtered_dag_runs {
+            rows.push(Row::new(vec![
+                dag_run.dag_id.clone(),
+                dag_run.state.clone(),
+                dag_run.data_interval_start.clone(),
+                dag_run.data_interval_end.clone(),
+                dag_run.run_type.clone(),
+                dag_run.external_trigger.to_string().clone(),
+            ]).style(
+                style::get_style_row_context(&dag_run.state)
+            ));
+        }
+        rows
     }
 
     pub fn get_dag_runs_rows_context(&self) -> Vec<Row> {
