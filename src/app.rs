@@ -19,7 +19,7 @@ use crate::components::command_search::CommandSearch;
 use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
-use crate::components::table_dags_runs::{TableDagRuns};
+use crate::components::table_dag_runs::{TableDagRuns};
 use crate::models::dag_run::DagRun;
 use crate::models::dag_runs::{DagRuns};
 
@@ -48,7 +48,6 @@ impl App {
     let config = Config::new()?;
     let mode = Mode::DagRun;
     let client = Client::new();
-    println!("Fetching dag runs...");
     Ok(Self {
       tick_rate,
       frame_rate,
@@ -58,7 +57,7 @@ impl App {
       mode,
       last_tick_key_events: Vec::new(),
       last_dag_runs_call: Instant::now(),
-      dag_runs: DagRuns::new(&client).await?,
+      dag_runs: DagRuns::new(),
       client,
       context_information: ContextInformation::new(),
       shortcut: Shortcut::new(),
@@ -71,7 +70,8 @@ impl App {
 
   pub async fn run(&mut self) -> Result<()> {
     let (action_tx, mut action_rx) = mpsc::unbounded_channel();
-
+    self.dag_runs.set_dag_runs(&self.client, &self.config.airflow.username, &self.config.airflow.password, &self.config.airflow.host).await?;
+    self.last_dag_runs_call = Instant::now();
     // Set the initial dag_runs state for the table widget
     self.table_dag_runs.set_dag_runs(self.dag_runs.clone());
     let mut tui = tui::Tui::new()?;
@@ -99,7 +99,6 @@ impl App {
 
     loop {
       if self.last_dag_runs_call.elapsed().as_secs() == 3 {
-        self.dag_runs.set_dag_runs(&self.client).await?;
         self.last_dag_runs_call = Instant::now();
         self.table_dag_runs.set_dag_runs(self.dag_runs.clone());
       }
@@ -262,7 +261,18 @@ impl App {
           }
           Action::DagRun => {
               self.mode = Mode::DagRun;
-          }
+          },
+          Action::Task => {
+              self.mode = Mode::Task;
+            self.table_dag_runs.tasks = Some(self.dag_runs.get_task(
+              &self.client,
+              &self.config.airflow,
+              &self.config.airflow.username,
+              &self.config.airflow.password,
+              &self.config.airflow.host,
+              0
+            ).await?);
+          },
           _ => {},
         }
         if let Some(action) = self.context_information.update(action.clone())? {

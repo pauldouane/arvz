@@ -5,7 +5,7 @@ use crate::models::conf::Conf;
 pub struct DagRun {
     conf: Conf,
     pub(crate) dag_id: String,
-    dag_run_id: String,
+    pub(crate) dag_run_id: String,
     pub(crate) data_interval_end: String,
     pub(crate) data_interval_start: String,
     end_date: Option<String>,

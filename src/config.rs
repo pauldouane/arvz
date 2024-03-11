@@ -1,4 +1,5 @@
 use std::{collections::HashMap, fmt, path::PathBuf};
+use clap::builder::Str;
 
 use color_eyre::eyre::Result;
 use config::Value;
@@ -29,6 +30,8 @@ pub struct Config {
   pub config: AppConfig,
   #[serde(default)]
   pub keybindings: KeyBindings,
+  #[serde(default)]
+  pub airflow: Airflow,
   #[serde(default)]
   pub styles: Styles,
 }
@@ -75,6 +78,9 @@ impl Config {
       }
     }
 
+    // Airflow
+    cfg.airflow = default_config.airflow;
+
     Ok(cfg)
   }
 }
@@ -100,6 +106,13 @@ impl<'de> Deserialize<'de> for KeyBindings {
 
     Ok(KeyBindings(keybindings))
   }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct Airflow {
+  pub username: String,
+  pub password: String,
+  pub host: String,
 }
 
 fn parse_key_event(raw: &str) -> Result<KeyEvent, String> {

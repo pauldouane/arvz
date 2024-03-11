@@ -5,6 +5,7 @@ use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::block::title;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -16,6 +17,7 @@ use crate::{
 use crate::mode::Mode;
 use crate::models::dag_run::DagRun;
 use crate::models::dag_runs::DagRuns;
+use crate::models::tasks::Tasks;
 use crate::utils::get_user_input_by_key;
 
 #[derive(Default)]
@@ -27,6 +29,8 @@ pub struct TableDagRuns {
     dag_runs: DagRuns,
     table_state: TableState,
     user_search: Option<String>,
+    client: Client,
+    pub(crate) tasks: Option<Tasks>
 }
 
 impl TableDagRuns {
@@ -39,12 +43,15 @@ impl TableDagRuns {
             dag_runs: DagRuns::default(),
             table_state: TableState::default(),
             user_search: None,
+            client: Client::new(),
+            tasks: None
         }
     }
 
-    pub(crate) fn set_dag_runs(&mut self, dag_runs: DagRuns) {
+    pub fn set_dag_runs(&mut self, dag_runs: DagRuns) {
         self.dag_runs = dag_runs;
     }
+
 }
 
 impl Component for TableDagRuns {
@@ -103,6 +110,17 @@ impl Component for TableDagRuns {
             },
             Action::DagRun => {
                 self.handle_mode(Mode::DagRun)?;
+                self.columns = vec!["DAG ID", "STATE", "START DATE", "END DATE", "RUN TYPE", "EXTERNAL TRIGGER"];
+            },
+            Action::Task => {
+                self.handle_mode(Mode::Task)?;
+                self.columns = vec![
+                    "OPERATOR",
+                    "TASK ID",
+                    "TRY NUMBER",
+                    "STATE",
+                    "DURATION",
+                ];
             },
             _ => {},
         }
@@ -110,17 +128,25 @@ impl Component for TableDagRuns {
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-        let rows: Vec<Row> = if let Some(search) = &self.user_search {
-                self.dag_runs.get_dag_runs_rows_filtered(&search)
+        let rows: Vec<Row> = if self.mode == Mode::Task {
+            if let Some(tasks) = &self.tasks {
+                tasks.get_tasks_row()
+            } else {
+                vec![]
+            }
+        } else {
+            if let Some(search) = &self.user_search {
+                self.dag_runs.get_dag_runs_rows_filtered(search)
             } else {
                 self.dag_runs.get_dag_runs_rows_context()
-            };
+            }
+        };
         // Set the width of the columns
         let widths = self.columns.iter().map(|_| {
             Constraint::Percentage((100 / self.columns.len() as u16).into())
         }).collect::<Vec<_>>();
         let mut title = vec![
-            Span::styled(" Context(", Style::new().light_cyan()),
+            Span::styled(format!(" {:?}(", self.mode), Style::new().light_cyan()),
             Span::styled("all", Style::new().magenta()),
             Span::styled(")", Style::new().light_cyan()),
             Span::styled("[", Style::new().white()),

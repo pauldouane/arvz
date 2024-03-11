@@ -8,10 +8,24 @@
       "<up>": "Previous", // Move to the previous item
       "</>": "Search", // Search for an item
       "<s>": "Search", // Search for an item
+      "<t>": "Task",
+      "<Enter>": "Task"
     },
     "Search": {
       "<Esc>": "DagRun", // Quit search mode
       "<Enter>": "DagRun",
+    },
+    "Task": {
+      "<j>": "Next", // Move to the next item
+      "<k>": "Previous", // Move to the previous item
+      "<down>": "Next", // Move to the next item
+      "<up>": "Previous", // Move to the previous item
+      "<Esc>": "DagRun", // Quit task mode
     }
+  },
+  "airflow": {
+    "host": "http://localhost:8080",
+    "username": "admin",
+    "password": "admin"
   }
 }

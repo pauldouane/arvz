@@ -14,7 +14,7 @@ pub mod fps;
 pub mod context_informations;
 pub mod shortcut;
 pub mod ascii;
-pub mod table_dags_runs;
+pub mod table_dag_runs;
 pub mod status_bar;
 pub mod command_search;
 

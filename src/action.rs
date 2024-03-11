@@ -21,5 +21,6 @@ pub enum Action {
   Next,
   Previous,
   Search,
-  SubmitSearch
+  SubmitSearch,
+  Task,
 }

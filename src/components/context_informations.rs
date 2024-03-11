@@ -97,8 +97,7 @@ impl Component for ContextInformation {
             ]),
         ];
         let block = Paragraph::new(text)
-            .block(Block::new())
-            .style(Style::new().white().on_black());
+            .block(Block::new());
         f.render_widget(block, area);
         Ok(())
     }

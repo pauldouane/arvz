@@ -73,7 +73,7 @@ impl Component for Shortcut {
 
         let mut text: Vec<Line> = vec![];
         let mut cnt_keybindings = 1;
-        let mut max_shortcut_len = self.config.keybindings.get(&self.mode).unwrap().iter().map(|(shortcut, _)| key_event_to_string(&shortcut[0]).len()).max().unwrap();
+        let max_shortcut_len = self.config.keybindings.get(&self.mode).unwrap().iter().map(|(shortcut, _)| key_event_to_string(&shortcut[0]).len()).max().unwrap();
         for (shortcut, action) in &*self.config.keybindings.get(&self.mode).unwrap() {
             text.push(Line::from(vec![
                 Span::styled(format!("<{}>", key_event_to_string(&shortcut[0])), Style::new().blue().bold()),

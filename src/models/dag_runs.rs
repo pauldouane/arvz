@@ -5,6 +5,8 @@ use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::Row;
+use crate::config::Airflow;
+use crate::models::tasks::Tasks;
 use crate::style;
 
 #[derive(Deserialize, Debug, Default, Clone)]
@@ -14,28 +16,17 @@ pub struct DagRuns{
 }
 
 impl DagRuns {
-    pub async fn new(client: &Client) -> Result<Self> {
-        let user_name = "root".to_string();
-        let password: Option<String> = Some("root".to_string());
-
-        let dag_runs: DagRuns = client
-            .get("http://172.19.223.158:8080/api/v1/dags/~/dagRuns?order_by=-start_date")
-            .basic_auth(user_name, password)
-            .send()
-            .await?
-            .json::<DagRuns>()
-            .await?;
-
-        println!("DagRuns: {:#?}", dag_runs);
-        Ok(dag_runs)
+    pub fn new() -> Self {
+        Self {
+            dag_runs: vec![],
+            total_entries: 0,
+        }
     }
 
-    pub async fn set_dag_runs(&mut self, client: &Client) -> Result<()> {
-        let user_name = "root".to_string();
-        let password: Option<String> = Some("root".to_string());
+    pub async fn set_dag_runs(&mut self, client: &Client, username: &str, password: &str, url: &str) -> Result<()> {
         let dag_runs: DagRuns = client
-            .get("http://172.19.223.158:8080/api/v1/dags/~/dagRuns?order_by=-start_date")
-            .basic_auth(user_name, password)
+            .get(format!("{}/api/v1/dags/~/dagRuns?order_by=-start_date", url))
+            .basic_auth(username, Some(password))
             .send()
             .await?
             .json::<DagRuns>()
@@ -44,6 +35,19 @@ impl DagRuns {
         self.dag_runs = dag_runs.dag_runs;
         self.total_entries = dag_runs.total_entries;
         Ok(())
+    }
+
+    pub async fn get_task(&mut self, client: &Client, cfg_airflow: &Airflow, username: &str, password: &str, url: &str, index: usize) -> Result<Tasks> {
+        let task: Tasks = client
+            .get(format!(
+                "{}/api/v1/dags/{}/dagRuns/{}/taskInstances", &cfg_airflow.host,
+                self.dag_runs[index].dag_id, self.dag_runs[index].dag_run_id))
+            .basic_auth(&cfg_airflow.username, Some(&cfg_airflow.password))
+            .send()
+            .await?
+            .json::<Tasks>()
+            .await?;
+        Ok(task)
     }
 
     pub fn get_total_entries(&self) -> u32 {
