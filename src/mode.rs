@@ -5,5 +5,6 @@ pub enum Mode {
   #[default]
   DagRun,
   Search,
-  Task
+  Task,
+  Log
 }

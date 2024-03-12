@@ -24,10 +24,17 @@
       "<up>": "Previous", // Move to the previous item
       "<Esc>": "DagRun", // Quit task mode
       "<c>": "Clear",
-    }
+      "<l>": "Log",
+      "<Enter>": "Log",
+    },
+    "Log": {
+      "<Esc>": "Task", // Quit log mode
+      "<l>": "NextTryNumber",
+      "<h>": "PreviousTryNumber",
+    },
   },
   "airflow": {
-    "host": "http://172.19.222.44:8080",
+    "host": "http://172.19.217.163:8080",
     "username": "root",
     "password": "root"
   }

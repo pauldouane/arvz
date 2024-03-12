@@ -25,4 +25,7 @@ pub enum Action {
   SubmitSearch,
   ClearSearch,
   Task,
+  Log,
+  NextTryNumber,
+  PreviousTryNumber,
 }

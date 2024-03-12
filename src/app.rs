@@ -277,10 +277,12 @@ impl App {
             })?;
           },
           Action::Search => {
+            self.status_bar.mode_breadcrumb.push(Mode::DagRun);
             self.mode = Mode::Search;
             self.status_bar.register_mode(self.mode);
           }
           Action::DagRun => {
+            self.status_bar.mode_breadcrumb.clear();
             self.mode = Mode::DagRun;
             self.status_bar.register_mode(self.mode);
           },
@@ -310,6 +312,8 @@ impl App {
             }
           }
           Action::Task => {
+            self.status_bar.mode_breadcrumb.clear();
+            self.status_bar.mode_breadcrumb.push(Mode::DagRun);
             if self.table_dag_runs.table_state.selected().is_none() {
               self.mode = Mode::DagRun;
               break;
@@ -326,6 +330,31 @@ impl App {
             ).await?);
             self.status_bar.register_mode(self.mode);
           },
+          Action::Log => {
+            self.status_bar.mode_breadcrumb.clear();
+            self.status_bar.mode_breadcrumb.push(Mode::DagRun);
+            self.status_bar.mode_breadcrumb.push(Mode::Task);
+            self.mode = Mode::Log;
+            self.table_dag_runs.handle_mode(self.mode)?;
+            self.status_bar.register_mode(self.mode);
+            if !self.table_dag_runs.table_state.selected().is_none() {
+              let log = self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].get_logs(
+                &self.client,
+                &self.config.airflow,
+                &self.config.airflow.username,
+                &self.config.airflow.password,
+                &self.config.airflow.host,
+                self.table_dag_runs.table_tasks_state.selected().unwrap()
+              ).await?;
+              self.table_dag_runs.log = log;
+            };
+          },
+          Action::NextTryNumber => {
+            if !self.table_dag_runs.table_tasks_state.selected().is_none() {
+              self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].next_try_number();
+            }
+          },
+          }
           Action::ClearSearch => {
             self.table_dag_runs.user_search = None;
           },

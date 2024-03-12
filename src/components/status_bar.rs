@@ -23,6 +23,7 @@ pub struct StatusBar {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
     mode: Mode,
+    pub(crate) mode_breadcrumb: Vec<Mode>,
 }
 
 impl StatusBar {
@@ -31,6 +32,7 @@ impl StatusBar {
             command_tx: None,
             config: Config::default(),
             mode: Mode::DagRun,
+            mode_breadcrumb: vec![],
         }
     }
 
@@ -58,15 +60,32 @@ impl Component for StatusBar {
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-        // Render rectangle in left corner of the screen in orange with black text
-        // Rectangle does not have a 100% of place in the left corner
-        let chunks = Layout::default()
+        // Create a new block with self.mode_breadcrumb.len() + 1 columns
+        // Space between each column is 10
+        self.mode_breadcrumb.push(self.mode);
+        let constraints = self.mode_breadcrumb.iter().map(|_| Constraint::Length(10)).collect::<Vec<_>>();
+
+        let block = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(9)])
+            .constraints(
+                constraints
+            )
             .split(area);
-        let text = Text::from(format!("{:?}", self.mode));
-        let block = Paragraph::new(text).alignment(Alignment::Center).block(Block::new().style(Style::default().bg(Color::Yellow)));
-        f.render_widget(block,chunks[0]);
+
+        if self.mode_breadcrumb.len() > 0 {
+            for (i, mode) in self.mode_breadcrumb.iter().enumerate() {
+                let para = Paragraph::new(format!("<{:?}>", mode))
+                    .alignment(Alignment::Center)
+                    .style(Style::default().fg(Color::DarkGray).bg(Color::Yellow));
+                f.render_widget(para, block[i]);
+            }
+        }
+
+        let para = Paragraph::new(format!("<{:?}>", self.mode))
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(Color::DarkGray).bg(Color::LightCyan));
+        f.render_widget(para, block[self.mode_breadcrumb.len() - 1]);
+        self.mode_breadcrumb.pop();
         Ok(())
     }
 }

@@ -7,7 +7,9 @@ use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::block::title;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde::de::Unexpected::Str;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing_subscriber::fmt::format;
 
 use super::{Component, Frame};
 use crate::{
@@ -32,6 +34,7 @@ pub struct TableDagRuns {
     client: Client,
     pub(crate) tasks: Option<Tasks>,
     pub(crate) table_tasks_state: TableState,
+    pub(crate) log: String,
 }
 
 impl TableDagRuns {
@@ -47,6 +50,7 @@ impl TableDagRuns {
             client: Client::new(),
             tasks: None,
             table_tasks_state: TableState::default(),
+            log: String::from(""),
         }
     }
 
@@ -160,10 +164,18 @@ impl Component for TableDagRuns {
         }).collect::<Vec<_>>();
         let mut title = vec![
             Span::styled(format!(" {:?}(", self.mode), Style::new().light_cyan()),
-            Span::styled("all", Style::new().magenta()),
+            Span::styled(if self.mode == Mode::Task {
+                format!("{}", self.dag_runs.dag_runs[self.table_state.selected().unwrap()].dag_run_id)
+            } else {
+                if self.mode == Mode::Log {
+                    format!("{}", self.tasks.as_ref().unwrap().task_instances[self.table_tasks_state.selected().unwrap()].task_id)
+                } else {
+                    String::from("all")
+                }
+            }, Style::new().magenta()),
             Span::styled(")", Style::new().light_cyan()),
             Span::styled("[", Style::new().white()),
-            Span::styled(format!("{}", rows.len()), Style::new().light_yellow()),
+            Span::styled(, Style::new().light_yellow()),
             Span::styled("] ", Style::new().white()),
         ];
         if let Some(search) = &self.user_search {
@@ -171,21 +183,31 @@ impl Component for TableDagRuns {
             title.push(Span::styled(format!("/{}", search), Style::new().bg(Color::Green)));
             title.push(Span::raw("> "));
         }
-        let table = Table::new(rows, widths)
-            .header(
-                Row::new(self.columns.iter().map(|&s| s).collect::<Vec<_>>())
-                    .bottom_margin(0)
-            )
-            .block(Block::default().title(Line::from(title)).title_alignment(Alignment::Center).borders(Borders::ALL).border_style(Style::default().fg(Color::LightBlue)))
-            .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
-        f.render_stateful_widget(table, area,
-            if self.mode == Mode::Task {
-                &mut self.table_tasks_state
-            } else {
-                &mut self.table_state
-            }
-        );
+
+        if self.mode == Mode::Log {
+            let log = Paragraph::new(self.log.as_str())
+                .block(Block::default().title(Line::from(title)).title_alignment(Alignment::Center).borders(Borders::ALL).border_style(Style::default().fg(Color::LightBlue)))
+                .wrap(Wrap { trim: true });
+            f.render_widget(log, area);
+            return Ok(());
+        } else {
+            let table = Table::new(rows, widths)
+                .header(
+                    Row::new(self.columns.iter().map(|&s| s).collect::<Vec<_>>())
+                        .bottom_margin(0)
+                )
+                .block(Block::default().title(Line::from(title)).title_alignment(Alignment::Center).borders(Borders::ALL).border_style(Style::default().fg(Color::LightBlue)))
+                .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
+
+            f.render_stateful_widget(table, area,
+             if self.mode == Mode::Task {
+                 &mut self.table_tasks_state
+             } else {
+                 &mut self.table_state
+             }
+            );
+        }
         Ok(())
     }
 }

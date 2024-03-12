@@ -5,6 +5,7 @@ use crate::config::Airflow;
 use color_eyre::eyre::Result;
 use serde_json::json;
 use serde_json::Value;
+use crate::models::log::Log;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Task {
@@ -96,5 +97,16 @@ impl Task {
             .send()
             .await?;
         Ok(())
+    }
+
+    pub async fn get_logs(&mut self, client: &Client, cfg_airflow: &Airflow, username: &str, password: &str, url: &str, try_number: usize) -> Result<String> {
+        let logs = client
+            .get(format!("{}/api/v1/dags/{}/dagRuns/{}/taskInstances/{}/logs/{}", &cfg_airflow.host, self.dag_id, self.dag_run_id, self.task_id, try_number))
+            .basic_auth(&cfg_airflow.username, Some(&cfg_airflow.password))
+            .send()
+            .await?
+            .text()
+            .await?;
+        Ok(logs)
     }
 }
