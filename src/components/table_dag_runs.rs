@@ -27,10 +27,11 @@ pub struct TableDagRuns {
     mode: Mode,
     columns: Vec<&'static str>,
     dag_runs: DagRuns,
-    table_state: TableState,
-    user_search: Option<String>,
+    pub(crate) table_state: TableState,
+    pub(crate) user_search: Option<String>,
     client: Client,
-    pub(crate) tasks: Option<Tasks>
+    pub(crate) tasks: Option<Tasks>,
+    pub(crate) table_tasks_state: TableState,
 }
 
 impl TableDagRuns {
@@ -44,7 +45,8 @@ impl TableDagRuns {
             table_state: TableState::default(),
             user_search: None,
             client: Client::new(),
-            tasks: None
+            tasks: None,
+            table_tasks_state: TableState::default(),
         }
     }
 
@@ -81,30 +83,41 @@ impl Component for TableDagRuns {
     }
 
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
+        let table_state = if self.mode == Mode::Task {
+            &mut self.table_tasks_state
+        } else {
+            &mut self.table_state
+        };
         match action {
             Action::Next => {
-                if self.table_state.selected().is_none() {
-                    self.table_state.select(Some(0));
+                if table_state.selected().is_none() {
+                    table_state.select(Some(0));
                 } else {
-                    if let Some(selected_index) = self.table_state.selected() {
-                        if let Some(search) = &self.user_search {
-                            let filtered = self.dag_runs.get_dag_runs_rows_filtered(search);
-                            if selected_index < filtered.len() - 1 {
-                                self.table_state.select(Some(selected_index + 1));
-                            }
-                        } else {
-                            if selected_index < self.dag_runs.dag_runs.len() - 1 {
-                                self.table_state.select(Some(selected_index + 1));
-                            }
-                        }
+                    if let Some(selected_index) = table_state.selected() {
+                       if self.mode == Mode::Task {
+                           if selected_index < self.tasks.as_ref().unwrap().task_instances.len() - 1 {
+                               table_state.select(Some(selected_index + 1));
+                           }
+                       } else {
+                           if let Some(search) = &self.user_search {
+                               let filtered = self.dag_runs.get_dag_runs_rows_filtered(search);
+                               if selected_index < filtered.len() - 1 {
+                                   self.table_state.select(Some(selected_index + 1));
+                               }
+                           } else {
+                               if selected_index < self.dag_runs.dag_runs.len() - 1 {
+                                   self.table_state.select(Some(selected_index + 1));
+                               }
+                           }
+                       }
                     }
                 }
             },
             Action::Previous => {
                 // If is the first element, don't do anything
-                if let Some(selected_index) = self.table_state.selected() {
+                if let Some(selected_index) = table_state.selected() {
                     if selected_index > 0 {
-                        self.table_state.select(Some(selected_index - 1));
+                        table_state.select(Some(selected_index - 1));
                     }
                 }
             },
@@ -166,7 +179,13 @@ impl Component for TableDagRuns {
             .block(Block::default().title(Line::from(title)).title_alignment(Alignment::Center).borders(Borders::ALL).border_style(Style::default().fg(Color::LightBlue)))
             .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
-        f.render_stateful_widget(table, area, &mut self.table_state);
+        f.render_stateful_widget(table, area,
+            if self.mode == Mode::Task {
+                &mut self.table_tasks_state
+            } else {
+                &mut self.table_state
+            }
+        );
         Ok(())
     }
 }

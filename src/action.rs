@@ -18,9 +18,11 @@ pub enum Action {
   Error(String),
   Help,
   DagRun,
+  Clear,
   Next,
   Previous,
   Search,
   SubmitSearch,
+  ClearSearch,
   Task,
 }

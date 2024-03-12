@@ -30,12 +30,18 @@ impl Tasks {
 
         for task in &self.task_instances {
             rows.push(Row::new(vec![
-                task.operator.clone(),
+                task.operator.clone().unwrap_or("n/a".to_string()),
                 task.task_id.clone(),
                 task.try_number.to_string(),
-                task.state.clone(),
-                task.duration.to_string(),
-            ]));
+                task.state.clone().unwrap_or("n/a".to_string()),
+                format!("{:.2} seconds",
+                    if let Some(duration) = task.duration {
+                        if duration > 0.0 { duration }
+                        else { 0.0 }
+                    }
+                    else { 0.0 }
+                ),
+            ]).style(style::get_style_row(&task.state.clone().unwrap_or_default())));
         }
         rows
     }

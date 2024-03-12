@@ -1,28 +1,34 @@
+use std::collections::HashMap;
+use reqwest::Client;
 use serde::Deserialize;
+use crate::config::Airflow;
+use color_eyre::eyre::Result;
+use serde_json::json;
+use serde_json::Value;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Task {
     dag_id: String,
     dag_run_id: String,
-    pub(crate) duration: f64,
-    end_date: String,
+    pub(crate) duration: Option<f64>,
+    end_date: Option<String>,
     execution_date: String,
     executor_config: String,
     hostname: String,
     map_index: i8,
     max_tries: i8,
     note: Option<String>,
-    pub(crate) operator: String,
-    pid: i32,
+    pub(crate) operator: Option<String>,
+    pid: Option<i32>,
     pool: String,
     pool_slots: i16,
-    priority_weight: i32,
-    queue: String,
-    queued_when: String,
+    priority_weight: Option<i32>,
+    queue: Option<String>,
+    queued_when: Option<String>,
     rendered_fields: Option<RenderedFields>,
     sla_miss: Option<SlaMiss>,
-    start_date: String,
-    pub(crate) state: String,
+    start_date: Option<String>,
+    pub(crate) state: Option<String>,
     pub(crate) task_id: String,
     trigger: Option<Trigger>,
     triggerer_job: Option<TriggerJob>,
@@ -66,3 +72,29 @@ pub struct TriggerJob {
 
 #[derive(Debug, Default, Deserialize)]
 pub struct RenderedFields {}
+
+impl Task {
+    pub async fn clear(&mut self, client: &Client, cfg_airflow: &Airflow, username: &str, password: &str, url: &str) -> Result<()> {
+        let body = json!({
+            "dry_run": true,
+            "task_ids": [self.task_id],
+            "only_failed": true,
+            "only_running": false,
+            "include_subdags": true,
+            "include_parentdag": true,
+            "reset_dag_runs": true,
+            "dag_run_id": self.dag_run_id,
+            "include_upstream": false,
+            "include_downstream": false,
+            "include_future": false,
+            "include_past": false
+        });
+        let task = client
+            .post(format!("{}/api/v1/dags/{}/clearTaskInstance", &cfg_airflow.host, self.dag_id))
+            .basic_auth(&cfg_airflow.username, Some(&cfg_airflow.password))
+            .json(&body)
+            .send()
+            .await?;
+        Ok(())
+    }
+}

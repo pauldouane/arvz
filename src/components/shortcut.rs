@@ -63,7 +63,7 @@ impl Component for Shortcut {
         let mut constraints = vec![];
 
         for _ in 0..number_of_columns {
-            constraints.push(Constraint::Length(17));
+            constraints.push(Constraint::Length(21));
         }
 
         let layout = Layout::default()

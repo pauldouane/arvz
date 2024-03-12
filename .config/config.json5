@@ -9,7 +9,9 @@
       "</>": "Search", // Search for an item
       "<s>": "Search", // Search for an item
       "<t>": "Task",
-      "<Enter>": "Task"
+      "<Enter>": "Task",
+      "<c>": "Clear",
+      "<y>": "ClearSearch",
     },
     "Search": {
       "<Esc>": "DagRun", // Quit search mode
@@ -21,11 +23,12 @@
       "<down>": "Next", // Move to the next item
       "<up>": "Previous", // Move to the previous item
       "<Esc>": "DagRun", // Quit task mode
+      "<c>": "Clear",
     }
   },
   "airflow": {
-    "host": "http://localhost:8080",
-    "username": "admin",
-    "password": "admin"
+    "host": "http://172.19.222.44:8080",
+    "username": "root",
+    "password": "root"
   }
 }

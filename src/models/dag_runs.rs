@@ -91,7 +91,7 @@ impl DagRuns {
                 dag_run.run_type.clone(),
                 dag_run.external_trigger.to_string().clone(),
             ]).style(
-                style::get_style_row_context(&dag_run.state)
+                style::get_style_row(&dag_run.state)
             ));
         }
         rows
@@ -109,7 +109,7 @@ impl DagRuns {
                 dag_run.run_type.clone(),
                 dag_run.external_trigger.to_string().clone(),
             ]).style(
-                style::get_style_row_context(&dag_run.state)
+                style::get_style_row(&dag_run.state)
             ));
         }
         rows

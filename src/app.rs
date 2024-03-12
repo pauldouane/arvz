@@ -32,6 +32,7 @@ pub struct App {
   pub mode: Mode,
   pub last_tick_key_events: Vec<KeyEvent>,
   pub last_dag_runs_call: Instant,
+  pub last_task_call: Option<Instant>,
   pub dag_runs: DagRuns,
   client: Client,
   context_information: ContextInformation,
@@ -57,6 +58,7 @@ impl App {
       mode,
       last_tick_key_events: Vec::new(),
       last_dag_runs_call: Instant::now(),
+      last_task_call: None,
       dag_runs: DagRuns::new(),
       client,
       context_information: ContextInformation::new(),
@@ -99,9 +101,27 @@ impl App {
 
     loop {
       if self.last_dag_runs_call.elapsed().as_secs() == 3 {
+        self.dag_runs.set_dag_runs(&self.client, &self.config.airflow.username, &self.config.airflow.password, &self.config.airflow.host).await?;
         self.last_dag_runs_call = Instant::now();
         self.table_dag_runs.set_dag_runs(self.dag_runs.clone());
       }
+
+      // If the task mode is selected, then fetch the tasks for the selected dag_run
+        if self.mode == Mode::Task {
+            if let Some(last_task_call) = self.last_task_call {
+              if last_task_call.elapsed().as_secs() >= 2 {
+                self.table_dag_runs.tasks = Some(self.dag_runs.get_task(
+                    &self.client,
+                    &self.config.airflow,
+                    &self.config.airflow.username,
+                    &self.config.airflow.password,
+                    &self.config.airflow.host,
+                    self.table_dag_runs.table_state.selected().unwrap_or(0) as usize
+                  ).await?);
+                  self.last_task_call = Some(Instant::now());
+              }
+            } else { self.last_task_call = Some(Instant::now()); }
+        }
       if let Some(e) = tui.next().await {
         match e {
           tui::Event::Quit => action_tx.send(Action::Quit)?,
@@ -258,20 +278,56 @@ impl App {
           },
           Action::Search => {
             self.mode = Mode::Search;
+            self.status_bar.register_mode(self.mode);
           }
           Action::DagRun => {
-              self.mode = Mode::DagRun;
+            self.mode = Mode::DagRun;
+            self.status_bar.register_mode(self.mode);
           },
+          Action::Clear => {
+            if self.mode == Mode::DagRun {
+              if !self.table_dag_runs.table_state.selected().is_none() {
+                self.dag_runs.dag_runs[self.table_dag_runs.table_state.selected().unwrap()].clear(
+                  &self.client,
+                  &self.config.airflow,
+                  &self.config.airflow.username,
+                  &self.config.airflow.password,
+                  &self.config.airflow.host
+                ).await?;
+              };
+            }
+
+            if self.mode == Mode::Task {
+              if !self.table_dag_runs.table_state.selected().is_none() {
+                self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].clear(
+                  &self.client,
+                  &self.config.airflow,
+                  &self.config.airflow.username,
+                  &self.config.airflow.password,
+                  &self.config.airflow.host,
+                ).await?;
+              };
+            }
+          }
           Action::Task => {
-              self.mode = Mode::Task;
+            if self.table_dag_runs.table_state.selected().is_none() {
+              self.mode = Mode::DagRun;
+              break;
+            }
+            self.mode = Mode::Task;
+            self.table_dag_runs.table_tasks_state.select(Some(0));
             self.table_dag_runs.tasks = Some(self.dag_runs.get_task(
               &self.client,
               &self.config.airflow,
               &self.config.airflow.username,
               &self.config.airflow.password,
               &self.config.airflow.host,
-              0
+              self.table_dag_runs.table_state.selected().unwrap_or(0) as usize
             ).await?);
+            self.status_bar.register_mode(self.mode);
+          },
+          Action::ClearSearch => {
+            self.table_dag_runs.user_search = None;
           },
           _ => {},
         }
