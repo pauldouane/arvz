@@ -351,9 +351,10 @@ impl App {
           },
           Action::NextTryNumber => {
             if !self.table_dag_runs.table_tasks_state.selected().is_none() {
-              if let Some(try_number) = self.table_dag_runs.try_number {
-                if try_number < self.table_dag_runs.tasks.as_ref().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].try_number as i32 {
-                  self.table_dag_runs.try_number = Some(try_number + 1);
+              if self.mode == Mode::Log {
+                if self.table_dag_runs.tasks.as_ref().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].try_number as usize > self.table_dag_runs.try_number {
+                  self.table_dag_runs.try_number += 1;
+                  log::info!("{}", format!("{}", self.table_dag_runs.try_number));
                   let log = self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].get_logs(
                     &self.client,
                     &self.config.airflow,
@@ -369,11 +370,21 @@ impl App {
           },
           Action::PreviousTryNumber => {
             if !self.table_dag_runs.table_tasks_state.selected().is_none() {
-              if let Some(try_number) = self.table_dag_runs.try_number {
-                if try_number > 0 {
-                  self.table_dag_runs.try_number = Some(try_number - 1);
-                }
-              }
+              if self.mode == Mode::Log {
+                if self.table_dag_runs.try_number > 1 {
+                  self.table_dag_runs.try_number -= 1;
+                  log::info!("{}", format!("{}", self.table_dag_runs.try_number));
+                  let log = self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].get_logs(
+                    &self.client,
+                    &self.config.airflow,
+                    &self.config.airflow.username,
+                    &self.config.airflow.password,
+                    &self.config.airflow.host,
+                    self.table_dag_runs.try_number
+                  ).await?;
+                  self.table_dag_runs.log = log;
+                };
+              };
             }
           },
           Action::ClearSearch => {

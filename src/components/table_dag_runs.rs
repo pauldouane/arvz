@@ -35,7 +35,7 @@ pub struct TableDagRuns {
     pub(crate) tasks: Option<Tasks>,
     pub(crate) table_tasks_state: TableState,
     pub(crate) log: String,
-    pub try_number: Option<i32>,
+    pub try_number: usize,
 }
 
 impl TableDagRuns {
@@ -52,7 +52,7 @@ impl TableDagRuns {
             tasks: None,
             table_tasks_state: TableState::default(),
             log: String::from(""),
-            try_number: None,
+            try_number: 1,
         }
     }
 
@@ -196,7 +196,21 @@ impl Component for TableDagRuns {
             let log = Paragraph::new(self.log.as_str())
                 .block(Block::default().title(Line::from(title)).title_alignment(Alignment::Center).borders(Borders::ALL).border_style(Style::default().fg(Color::LightBlue)))
                 .wrap(Wrap { trim: true });
+            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(Some("↑"))
+                .end_symbol(Some("↓"));
+            let vertical_scroll = 0; // from app state
+            let mut scrollbar_state = ScrollbarState::new(self.log.len()).position(vertical_scroll);
             f.render_widget(log, area);
+            f.render_stateful_widget(
+                scrollbar,
+                area.inner(&Margin {
+                    // using an inner vertical margin of 1 unit makes the scrollbar inside the block
+                    vertical: 1,
+                    horizontal: 0,
+                }),
+                &mut scrollbar_state,
+            );
             return Ok(());
         } else {
             let table = Table::new(rows, widths)

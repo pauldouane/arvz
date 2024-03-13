@@ -25,6 +25,7 @@ use crate::models::dag_runs::DagRuns;
 
 async fn tokio_main() -> Result<()> {
   initialize_logging()?;
+  log::info!("{} version: {}", env!("CARGO_PKG_NAME"), version());
 
   initialize_panic_handler()?;
 

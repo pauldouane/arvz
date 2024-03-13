@@ -31,6 +31,8 @@
       "<Esc>": "Task", // Quit log mode
       "<l>": "NextTryNumber",
       "<h>": "PreviousTryNumber",
+      "<right>": "NextTryNumber",
+      "<left>" : "PreviousTryNumber",
     },
   },
   "airflow": {
