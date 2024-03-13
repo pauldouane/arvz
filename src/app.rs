@@ -344,17 +344,38 @@ impl App {
                 &self.config.airflow.username,
                 &self.config.airflow.password,
                 &self.config.airflow.host,
-                self.table_dag_runs.table_tasks_state.selected().unwrap()
+                self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].try_number as u32
               ).await?;
               self.table_dag_runs.log = log;
             };
           },
           Action::NextTryNumber => {
             if !self.table_dag_runs.table_tasks_state.selected().is_none() {
-              self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].next_try_number();
+              if let Some(try_number) = self.table_dag_runs.try_number {
+                if try_number < self.table_dag_runs.tasks.as_ref().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].try_number as i32 {
+                  self.table_dag_runs.try_number = Some(try_number + 1);
+                  let log = self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].get_logs(
+                    &self.client,
+                    &self.config.airflow,
+                    &self.config.airflow.username,
+                    &self.config.airflow.password,
+                    &self.config.airflow.host,
+                    self.table_dag_runs.try_number.unwrap() as u32
+                  ).await?;
+                  self.table_dag_runs.log = log;
+                }
+              }
             }
           },
-          }
+          Action::PreviousTryNumber => {
+            if !self.table_dag_runs.table_tasks_state.selected().is_none() {
+              if let Some(try_number) = self.table_dag_runs.try_number {
+                if try_number > 0 {
+                  self.table_dag_runs.try_number = Some(try_number - 1);
+                }
+              }
+            }
+          },
           Action::ClearSearch => {
             self.table_dag_runs.user_search = None;
           },

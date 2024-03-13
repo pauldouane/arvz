@@ -99,7 +99,7 @@ impl Task {
         Ok(())
     }
 
-    pub async fn get_logs(&mut self, client: &Client, cfg_airflow: &Airflow, username: &str, password: &str, url: &str, try_number: usize) -> Result<String> {
+    pub async fn get_logs(&mut self, client: &Client, cfg_airflow: &Airflow, username: &str, password: &str, url: &str, try_number: u32) -> Result<String> {
         let logs = client
             .get(format!("{}/api/v1/dags/{}/dagRuns/{}/taskInstances/{}/logs/{}", &cfg_airflow.host, self.dag_id, self.dag_run_id, self.task_id, try_number))
             .basic_auth(&cfg_airflow.username, Some(&cfg_airflow.password))

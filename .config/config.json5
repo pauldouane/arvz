@@ -34,8 +34,8 @@
     },
   },
   "airflow": {
-    "host": "http://172.19.217.163:8080",
-    "username": "root",
-    "password": "root"
+    "host": "http://localhost:8080",
+    "username": "admin",
+    "password": "admin"
   }
 }

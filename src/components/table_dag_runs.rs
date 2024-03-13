@@ -35,6 +35,7 @@ pub struct TableDagRuns {
     pub(crate) tasks: Option<Tasks>,
     pub(crate) table_tasks_state: TableState,
     pub(crate) log: String,
+    pub try_number: Option<i32>,
 }
 
 impl TableDagRuns {
@@ -51,6 +52,7 @@ impl TableDagRuns {
             tasks: None,
             table_tasks_state: TableState::default(),
             log: String::from(""),
+            try_number: None,
         }
     }
 
@@ -175,7 +177,12 @@ impl Component for TableDagRuns {
             }, Style::new().magenta()),
             Span::styled(")", Style::new().light_cyan()),
             Span::styled("[", Style::new().white()),
-            Span::styled(, Style::new().light_yellow()),
+            Span::styled(format!("{}",
+                                 if let Some(try_number) = self.try_number {
+                                     try_number as u32
+                                 } else {
+                                     self.dag_runs.get_total_entries()
+                                 }), Style::new().light_yellow()),
             Span::styled("] ", Style::new().white()),
         ];
         if let Some(search) = &self.user_search {
