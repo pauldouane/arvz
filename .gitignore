@@ -1,6 +1,7 @@
 ### Project based
 .data/*.log
 .idea/
+.fleet/
 
 ### Personnal config
 .config/
