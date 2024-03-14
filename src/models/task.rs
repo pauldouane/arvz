@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use crate::config::Airflow;
+use crate::models::log::Log;
+use color_eyre::eyre::Result;
 use reqwest::Client;
 use serde::Deserialize;
-use crate::config::Airflow;
-use color_eyre::eyre::Result;
 use serde_json::json;
 use serde_json::Value;
-use crate::models::log::Log;
+use std::collections::HashMap;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Task {
@@ -34,7 +34,7 @@ pub struct Task {
     trigger: Option<Trigger>,
     triggerer_job: Option<TriggerJob>,
     pub(crate) try_number: f64,
-    unixname: String
+    unixname: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -45,7 +45,7 @@ pub struct SlaMiss {
     execution_date: String,
     notification_sent: bool,
     task_id: String,
-    timestamp: String
+    timestamp: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -54,7 +54,7 @@ pub struct Trigger {
     created_date: String,
     id: i32,
     kwargs: String,
-    triggerer_id: i32
+    triggerer_id: i32,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -68,14 +68,21 @@ pub struct TriggerJob {
     latest_heartbeat: String,
     start_date: String,
     state: String,
-    unixname: String
+    unixname: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
 pub struct RenderedFields {}
 
 impl Task {
-    pub async fn clear(&mut self, client: &Client, cfg_airflow: &Airflow, username: &str, password: &str, url: &str) -> Result<()> {
+    pub async fn clear(
+        &mut self,
+        client: &Client,
+        cfg_airflow: &Airflow,
+        username: &str,
+        password: &str,
+        url: &str,
+    ) -> Result<()> {
         let body = json!({
             "dry_run": true,
             "task_ids": [self.task_id],
@@ -91,7 +98,10 @@ impl Task {
             "include_past": false
         });
         let task = client
-            .post(format!("{}/api/v1/dags/{}/clearTaskInstance", &cfg_airflow.host, self.dag_id))
+            .post(format!(
+                "{}/api/v1/dags/{}/clearTaskInstance",
+                &cfg_airflow.host, self.dag_id
+            ))
             .basic_auth(&cfg_airflow.username, Some(&cfg_airflow.password))
             .json(&body)
             .send()
@@ -99,9 +109,20 @@ impl Task {
         Ok(())
     }
 
-    pub async fn get_logs(&mut self, client: &Client, cfg_airflow: &Airflow, username: &str, password: &str, url: &str, try_number: usize) -> Result<String> {
+    pub async fn get_logs(
+        &mut self,
+        client: &Client,
+        cfg_airflow: &Airflow,
+        username: &str,
+        password: &str,
+        url: &str,
+        try_number: usize,
+    ) -> Result<String> {
         let logs = client
-            .get(format!("{}/api/v1/dags/{}/dagRuns/{}/taskInstances/{}/logs/{}", &cfg_airflow.host, self.dag_id, self.dag_run_id, self.task_id, try_number))
+            .get(format!(
+                "{}/api/v1/dags/{}/dagRuns/{}/taskInstances/{}/logs/{}",
+                &cfg_airflow.host, self.dag_id, self.dag_run_id, self.task_id, try_number
+            ))
             .basic_auth(&cfg_airflow.username, Some(&cfg_airflow.password))
             .send()
             .await?

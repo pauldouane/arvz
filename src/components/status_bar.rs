@@ -3,20 +3,20 @@ use std::{collections::HashMap, time::Duration, vec};
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{KeyCode, KeyEvent};
-use ratatui::{prelude::*, widgets::*};
 use ratatui::symbols::border;
 use ratatui::widgets::block::{Position, Title};
+use ratatui::{prelude::*, widgets::*};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing_subscriber::fmt::format;
 
 use super::{Component, Frame};
+use crate::config::key_event_to_string;
+use crate::mode::Mode;
 use crate::{
     action::Action,
     config::{Config, KeyBindings},
 };
-use crate::config::key_event_to_string;
-use crate::mode::Mode;
 
 #[derive(Default)]
 pub struct StatusBar {
@@ -53,9 +53,7 @@ impl Component for StatusBar {
     }
 
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        match action {
-            _ => {},
-        }
+        {}
         Ok(None)
     }
 
@@ -63,16 +61,18 @@ impl Component for StatusBar {
         // Create a new block with self.mode_breadcrumb.len() + 1 columns
         // Space between each column is 10
         self.mode_breadcrumb.push(self.mode);
-        let constraints = self.mode_breadcrumb.iter().map(|_| Constraint::Length(10)).collect::<Vec<_>>();
+        let constraints = self
+            .mode_breadcrumb
+            .iter()
+            .map(|_| Constraint::Length(10))
+            .collect::<Vec<_>>();
 
         let block = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(
-                constraints
-            )
+            .constraints(constraints)
             .split(area);
 
-        if self.mode_breadcrumb.len() > 0 {
+        if !self.mode_breadcrumb.is_empty() {
             for (i, mode) in self.mode_breadcrumb.iter().enumerate() {
                 let para = Paragraph::new(format!("<{:?}>", mode))
                     .alignment(Alignment::Center)

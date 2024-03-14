@@ -3,20 +3,20 @@ use std::{collections::HashMap, time::Duration, vec};
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{KeyCode, KeyEvent};
-use ratatui::{prelude::*, widgets::*};
 use ratatui::symbols::border;
 use ratatui::widgets::block::{Position, Title};
+use ratatui::{prelude::*, widgets::*};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::{Component, Frame};
+use crate::config::key_event_to_string;
+use crate::mode::Mode;
+use crate::utils::get_user_input_by_key;
 use crate::{
     action::Action,
     config::{Config, KeyBindings},
 };
-use crate::config::key_event_to_string;
-use crate::mode::Mode;
-use crate::utils::get_user_input_by_key;
 
 #[derive(Default)]
 pub struct CommandSearch {
@@ -66,19 +66,16 @@ impl Component for CommandSearch {
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
         // draw the search bar
-        let line = Line::from(vec![
-            if let Some(search) = &self.user_search {
-                Span::raw(search)
-            } else {
-                Span::raw("")
-            },
-        ]);
-        let search_bar = Paragraph::new(line)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Green))
-            );
+        let line = Line::from(vec![if let Some(search) = &self.user_search {
+            Span::raw(search)
+        } else {
+            Span::raw("")
+        }]);
+        let search_bar = Paragraph::new(line).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Green)),
+        );
         f.render_widget(search_bar, area);
         Ok(())
     }

@@ -71,5 +71,7 @@ impl Component for FpsCounter {
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()> { Ok(()) }
+    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()> {
+        Ok(())
+    }
 }

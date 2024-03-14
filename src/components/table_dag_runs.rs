@@ -3,24 +3,24 @@ use std::{collections::HashMap, time::Duration};
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{KeyCode, KeyEvent};
-use ratatui::{prelude::*, widgets::*};
 use ratatui::widgets::block::title;
+use ratatui::{prelude::*, widgets::*};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use serde::de::Unexpected::Str;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing_subscriber::fmt::format;
 
 use super::{Component, Frame};
-use crate::{
-    action::Action,
-    config::{Config, KeyBindings},
-};
 use crate::mode::Mode;
 use crate::models::dag_run::DagRun;
 use crate::models::dag_runs::DagRuns;
 use crate::models::tasks::Tasks;
 use crate::utils::get_user_input_by_key;
+use crate::{
+    action::Action,
+    config::{Config, KeyBindings},
+};
 
 #[derive(Default)]
 pub struct TableDagRuns {
@@ -44,7 +44,14 @@ impl TableDagRuns {
             command_tx: None,
             config: Config::default(),
             mode: Mode::DagRun,
-            columns: vec!["DAG ID", "STATE", "START DATE", "END DATE", "RUN TYPE", "EXTERNAL TRIGGER"],
+            columns: vec![
+                "DAG ID",
+                "STATE",
+                "START DATE",
+                "END DATE",
+                "RUN TYPE",
+                "EXTERNAL TRIGGER",
+            ],
             dag_runs: DagRuns::default(),
             table_state: TableState::default(),
             user_search: None,
@@ -59,7 +66,6 @@ impl TableDagRuns {
     pub fn set_dag_runs(&mut self, dag_runs: DagRuns) {
         self.dag_runs = dag_runs;
     }
-
 }
 
 impl Component for TableDagRuns {
@@ -98,27 +104,21 @@ impl Component for TableDagRuns {
             Action::Next => {
                 if table_state.selected().is_none() {
                     table_state.select(Some(0));
-                } else {
-                    if let Some(selected_index) = table_state.selected() {
-                       if self.mode == Mode::Task {
-                           if selected_index < self.tasks.as_ref().unwrap().task_instances.len() - 1 {
-                               table_state.select(Some(selected_index + 1));
-                           }
-                       } else {
-                           if let Some(search) = &self.user_search {
-                               let filtered = self.dag_runs.get_dag_runs_rows_filtered(search);
-                               if selected_index < filtered.len() - 1 {
-                                   self.table_state.select(Some(selected_index + 1));
-                               }
-                           } else {
-                               if selected_index < self.dag_runs.dag_runs.len() - 1 {
-                                   self.table_state.select(Some(selected_index + 1));
-                               }
-                           }
-                       }
+                } else if let Some(selected_index) = table_state.selected() {
+                    if self.mode == Mode::Task {
+                        if selected_index < self.tasks.as_ref().unwrap().task_instances.len() - 1 {
+                            table_state.select(Some(selected_index + 1));
+                        }
+                    } else if let Some(search) = &self.user_search {
+                        let filtered = self.dag_runs.get_dag_runs_rows_filtered(search);
+                        if selected_index < filtered.len() - 1 {
+                            self.table_state.select(Some(selected_index + 1));
+                        }
+                    } else if selected_index < self.dag_runs.dag_runs.len() - 1 {
+                        self.table_state.select(Some(selected_index + 1));
                     }
                 }
-            },
+            }
             Action::Previous => {
                 // If is the first element, don't do anything
                 if let Some(selected_index) = table_state.selected() {
@@ -126,22 +126,23 @@ impl Component for TableDagRuns {
                         table_state.select(Some(selected_index - 1));
                     }
                 }
-            },
+            }
             Action::DagRun => {
                 self.handle_mode(Mode::DagRun)?;
-                self.columns = vec!["DAG ID", "STATE", "START DATE", "END DATE", "RUN TYPE", "EXTERNAL TRIGGER"];
-            },
+                self.columns = vec![
+                    "DAG ID",
+                    "STATE",
+                    "START DATE",
+                    "END DATE",
+                    "RUN TYPE",
+                    "EXTERNAL TRIGGER",
+                ];
+            }
             Action::Task => {
                 self.handle_mode(Mode::Task)?;
-                self.columns = vec![
-                    "OPERATOR",
-                    "TASK ID",
-                    "TRY NUMBER",
-                    "STATE",
-                    "DURATION",
-                ];
-            },
-            _ => {},
+                self.columns = vec!["OPERATOR", "TASK ID", "TRY NUMBER", "STATE", "DURATION"];
+            }
+            _ => {}
         }
         Ok(None)
     }
@@ -153,48 +154,67 @@ impl Component for TableDagRuns {
             } else {
                 vec![]
             }
+        } else if let Some(search) = &self.user_search {
+            self.dag_runs.get_dag_runs_rows_filtered(search)
         } else {
-            if let Some(search) = &self.user_search {
-                self.dag_runs.get_dag_runs_rows_filtered(search)
-            } else {
-                self.dag_runs.get_dag_runs_rows_context()
-            }
+            self.dag_runs.get_dag_runs_rows_context()
         };
         // Set the width of the columns
-        let widths = self.columns.iter().map(|_| {
-            Constraint::Percentage((100 / self.columns.len() as u16).into())
-        }).collect::<Vec<_>>();
+        let widths = self
+            .columns
+            .iter()
+            .map(|_| Constraint::Percentage(100 / self.columns.len() as u16))
+            .collect::<Vec<_>>();
         let mut title = vec![
             Span::styled(format!(" {:?}(", self.mode), Style::new().light_cyan()),
-            Span::styled(if self.mode == Mode::Task {
-                format!("{}", self.dag_runs.dag_runs[self.table_state.selected().unwrap()].dag_run_id)
-            } else {
-                if self.mode == Mode::Log {
-                    format!("{}", self.tasks.as_ref().unwrap().task_instances[self.table_tasks_state.selected().unwrap()].task_id)
+            Span::styled(
+                if self.mode == Mode::Task {
+                    self.dag_runs.dag_runs[self.table_state.selected().unwrap()]
+                        .dag_run_id
+                        .to_string()
+                } else if self.mode == Mode::Log {
+                    self.tasks.as_ref().unwrap().task_instances
+                        [self.table_tasks_state.selected().unwrap()]
+                    .task_id
+                    .to_string()
                 } else {
                     String::from("all")
-                }
-            }, Style::new().magenta()),
+                },
+                Style::new().magenta(),
+            ),
             Span::styled(")", Style::new().light_cyan()),
             Span::styled("[", Style::new().white()),
-            Span::styled(format!("{}",
-                                 if self.mode == Mode::Log {
-                                     self.try_number as u32
-                                 } else {
-                                     self.dag_runs.get_total_entries()
-                                 }), Style::new().light_yellow()),
+            Span::styled(
+                format!(
+                    "{}",
+                    if self.mode == Mode::Log {
+                        self.try_number as u32
+                    } else {
+                        self.dag_runs.get_total_entries()
+                    }
+                ),
+                Style::new().light_yellow(),
+            ),
             Span::styled("] ", Style::new().white()),
         ];
         if let Some(search) = &self.user_search {
             title.push(Span::raw("<"));
-            title.push(Span::styled(format!("/{}", search), Style::new().bg(Color::Green)));
+            title.push(Span::styled(
+                format!("/{}", search),
+                Style::new().bg(Color::Green),
+            ));
             title.push(Span::raw("> "));
         }
 
-
         if self.mode == Mode::Log {
             let log = Paragraph::new(self.log.as_str())
-                .block(Block::default().title(Line::from(title)).title_alignment(Alignment::Center).borders(Borders::ALL).border_style(Style::default().fg(Color::LightBlue)))
+                .block(
+                    Block::default()
+                        .title(Line::from(title))
+                        .title_alignment(Alignment::Center)
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(Color::LightBlue)),
+                )
                 .wrap(Wrap { trim: true });
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some("↑"))
@@ -214,19 +234,24 @@ impl Component for TableDagRuns {
             return Ok(());
         } else {
             let table = Table::new(rows, widths)
-                .header(
-                    Row::new(self.columns.iter().map(|&s| s).collect::<Vec<_>>())
-                        .bottom_margin(0)
+                .header(Row::new(self.columns.to_vec()).bottom_margin(0))
+                .block(
+                    Block::default()
+                        .title(Line::from(title))
+                        .title_alignment(Alignment::Center)
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(Color::LightBlue)),
                 )
-                .block(Block::default().title(Line::from(title)).title_alignment(Alignment::Center).borders(Borders::ALL).border_style(Style::default().fg(Color::LightBlue)))
                 .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
-            f.render_stateful_widget(table, area,
-             if self.mode == Mode::Task {
-                 &mut self.table_tasks_state
-             } else {
-                 &mut self.table_state
-             }
+            f.render_stateful_widget(
+                table,
+                area,
+                if self.mode == Mode::Task {
+                    &mut self.table_tasks_state
+                } else {
+                    &mut self.table_state
+                },
             );
         }
         Ok(())
