@@ -7,8 +7,6 @@ repository = "https://github.com/pauldouane/arvz"
 authors = ["Paul Douane <paul.douane@gmail.com>"]
 build = "build.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 better-panic = "0.3.0"
 clap = { version = "4.4.5", features = ["derive", "cargo", "wrap_help", "unicode", "string", "unstable-styles"] }
@@ -35,7 +33,7 @@ tokio-util = "0.7.9"
 tracing = "0.1.37"
 tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "serde"] }
-reqwest = { version = "0.11.25", features = ["json"] }
+reqwest = { version = "0.11.25", features = ["json", "rustls-tls", "rustls-tls-native-roots"] }
 
 [build-dependencies]
 vergen = { version = "8.2.6", features = [ "build", "git", "gitoxide", "cargo" ]}
