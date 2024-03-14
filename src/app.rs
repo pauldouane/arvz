@@ -344,7 +344,7 @@ impl App {
                 &self.config.airflow.username,
                 &self.config.airflow.password,
                 &self.config.airflow.host,
-                self.table_dag_runs.tasks.as_mut().unwrap().task_instances[self.table_dag_runs.table_tasks_state.selected().unwrap()].try_number as u32
+                self.table_dag_runs.try_number
               ).await?;
               self.table_dag_runs.log = log;
             };
@@ -361,7 +361,7 @@ impl App {
                     &self.config.airflow.username,
                     &self.config.airflow.password,
                     &self.config.airflow.host,
-                    self.table_dag_runs.try_number.unwrap() as u32
+                    self.table_dag_runs.try_number
                   ).await?;
                   self.table_dag_runs.log = log;
                 }

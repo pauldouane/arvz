@@ -178,8 +178,8 @@ impl Component for TableDagRuns {
             Span::styled(")", Style::new().light_cyan()),
             Span::styled("[", Style::new().white()),
             Span::styled(format!("{}",
-                                 if let Some(try_number) = self.try_number {
-                                     try_number as u32
+                                 if self.mode == Mode::Log {
+                                     self.try_number as u32
                                  } else {
                                      self.dag_runs.get_total_entries()
                                  }), Style::new().light_yellow()),
