@@ -8,11 +8,11 @@ use tokio::io::split;
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::{Component, Frame};
+use crate::models::dag_runs::DagRuns;
 use crate::{
     action::Action,
     config::{Config, KeyBindings},
 };
-use crate::models::dag_runs::DagRuns;
 
 #[derive(Default)]
 pub struct ContextInformation {
@@ -23,7 +23,7 @@ pub struct ContextInformation {
     total_dag_runs_failed: u32,
     total_dag_runs_scheduled: u32,
     total_dag_runs_success: u32,
-    total_dag_runs_queued: u32
+    total_dag_runs_queued: u32,
 }
 
 impl ContextInformation {
@@ -36,7 +36,7 @@ impl ContextInformation {
             total_dag_runs_failed: 0,
             total_dag_runs_scheduled: 0,
             total_dag_runs_success: 0,
-            total_dag_runs_queued: 0
+            total_dag_runs_queued: 0,
         }
     }
 
@@ -62,9 +62,7 @@ impl Component for ContextInformation {
     }
 
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        match action {
-            _ => {},
-        }
+        {}
         Ok(None)
     }
 
@@ -93,11 +91,10 @@ impl Component for ContextInformation {
             ]),
             Line::from(vec![
                 Span::styled("ARVZ version       : ", Style::new().yellow()),
-                Span::raw(format!("{}", "0.1.0")),
+                Span::raw("0.1.0".to_string()),
             ]),
         ];
-        let block = Paragraph::new(text)
-            .block(Block::new());
+        let block = Paragraph::new(text).block(Block::new());
         f.render_widget(block, area);
         Ok(())
     }

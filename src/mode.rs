@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Mode {
-  #[default]
-  DagRun,
-  Search,
-  Task,
-  Log
+    #[default]
+    DagRun,
+    Search,
+    Task,
+    Log,
 }

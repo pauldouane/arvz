@@ -48,9 +48,7 @@ impl Component for Ascii {
     }
 
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        match action {
-            _ => {},
-        }
+        {}
         Ok(None)
     }
 
