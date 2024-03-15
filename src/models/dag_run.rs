@@ -2,7 +2,7 @@ use crate::config::Airflow;
 use crate::models::conf::Conf;
 use crate::models::tasks::Tasks;
 use color_eyre::eyre::Result;
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -53,18 +53,22 @@ impl DagRun {
     }
 
     pub async fn get_source_code(&mut self, client: &Client, cfg: &Airflow) -> Result<String> {
-        let dag = client.get(format!("{}/api/v1/dags/{}/details", cfg.host, self.dag_id))
+        let res = client
+            .get(format!("{}/api/v1/dags/{}/details", cfg.host, self.dag_id))
             .basic_auth(&cfg.username, Some(&cfg.password))
             .send()
-            .await?
-            .json::<Dag>()
-            .await;
-        let source_code = client.get(format!("{}/api/v1/dagSources/{}", cfg.host, dag.unwrap().dag_id))
-            .basic_auth(&cfg.username, Some(&cfg.password))
-            .send()
-            .await?
-            .text()
             .await?;
-        Ok(source_code)
+        if res.status() == StatusCode::OK {
+            let dag = res.json::<Dag>().await?;
+            let source_code = client
+                .get(format!("{}/api/v1/dagSources/{}", cfg.host, dag.file_token))
+                .basic_auth(&cfg.username, Some(&cfg.password))
+                .send()
+                .await?
+                .text()
+                .await?;
+            return Ok(source_code);
+        }
+        Ok(String::from(""))
     }
 }

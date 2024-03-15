@@ -326,10 +326,15 @@ impl App {
                         self.status_bar.register_mode(self.mode);
                     }
                     Action::Code => {
-                        let source_code = self.table_dag_runs.dag_runs.dag_runs[self.table_dag_runs.table_state.selected().unwrap()].get_source_code(
-                            &self.client,
-                            &self.config.airflow,
-                        ).await?;
+                        self.mode = Mode::Code;
+                        self.status_bar.mode_breadcrumb.push(Mode::DagRun);
+                        self.status_bar.register_mode(self.mode);
+                        self.table_dag_runs.handle_mode(self.mode)?;
+                        let source_code = self.table_dag_runs.dag_runs.dag_runs
+                            [self.table_dag_runs.table_state.selected().unwrap()]
+                        .get_source_code(&self.client, &self.config.airflow)
+                        .await?;
+                        self.table_dag_runs.code = source_code.clone();
                         log::info!("{}", source_code);
                     }
                     Action::Clear => {

@@ -5,7 +5,7 @@ pub struct Dag {
     pub(crate) dag_id: String,
     default_view: Option<String>,
     description: Option<String>,
-    file_token: String,
+    pub(crate) file_token: String,
     fileloc: String,
     has_import_errors: Option<bool>,
     has_task_concurrency_limits: Option<bool>,
@@ -39,8 +39,8 @@ pub struct Dag {
     params: Params,
     render_template_as_native_obj: Option<bool>,
     start_date: Option<String>,
-    template_search_path: Vec<String>,
-    timezone: String 
+    template_search_path: Option<Vec<String>>,
+    timezone: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -48,7 +48,7 @@ pub struct ScheduleInterval {}
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Tag {
-    name: String
+    name: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -56,7 +56,7 @@ pub struct DagRunTimeout {
     __type: String,
     days: i32,
     microseconds: i32,
-    seconds: i32
+    seconds: i32,
 }
 
 #[derive(Debug, Default, Deserialize)]
