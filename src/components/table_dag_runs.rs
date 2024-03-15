@@ -28,13 +28,14 @@ pub struct TableDagRuns {
     config: Config,
     mode: Mode,
     columns: Vec<&'static str>,
-    dag_runs: DagRuns,
+    pub(crate) dag_runs: DagRuns,
     pub(crate) table_state: TableState,
     pub(crate) user_search: Option<String>,
     client: Client,
     pub(crate) tasks: Option<Tasks>,
     pub(crate) table_tasks_state: TableState,
     pub(crate) log: String,
+    pub(crate) code: String,
     pub try_number: usize,
 }
 
@@ -59,6 +60,7 @@ impl TableDagRuns {
             tasks: None,
             table_tasks_state: TableState::default(),
             log: String::from(""),
+            code: String::from(""),
             try_number: 1,
         }
     }
@@ -206,16 +208,20 @@ impl Component for TableDagRuns {
             title.push(Span::raw("> "));
         }
 
-        if self.mode == Mode::Log {
-            let log = Paragraph::new(self.log.as_str())
-                .block(
-                    Block::default()
-                        .title(Line::from(title))
-                        .title_alignment(Alignment::Center)
-                        .borders(Borders::ALL)
-                        .border_style(Style::default().fg(Color::LightBlue)),
-                )
-                .wrap(Wrap { trim: true });
+        if self.mode == Mode::Log || self.mode == Mode::Code {
+            let log = Paragraph::new(if self.mode == Mode::Log {
+                self.log.as_str()
+            } else {
+                self.code.as_str()
+            })
+            .block(
+                Block::default()
+                    .title(Line::from(title))
+                    .title_alignment(Alignment::Center)
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::LightBlue)),
+            )
+            .wrap(Wrap { trim: true });
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some("↑"))
                 .end_symbol(Some("↓"));

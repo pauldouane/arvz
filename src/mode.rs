@@ -7,4 +7,5 @@ pub enum Mode {
     Search,
     Task,
     Log,
+    Code,
 }
