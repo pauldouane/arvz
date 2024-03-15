@@ -18,6 +18,7 @@ pub enum Action {
     Error(String),
     Help,
     DagRun,
+    Code,
     Clear,
     Next,
     Previous,

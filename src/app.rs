@@ -1,5 +1,6 @@
 use color_eyre::eyre::Result;
 use crossterm::event::KeyEvent;
+use log::log;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::prelude::Rect;
 use reqwest::Client;
@@ -323,6 +324,13 @@ impl App {
                         self.status_bar.mode_breadcrumb.clear();
                         self.mode = Mode::DagRun;
                         self.status_bar.register_mode(self.mode);
+                    }
+                    Action::Code => {
+                        let source_code = self.table_dag_runs.dag_runs.dag_runs[self.table_dag_runs.table_state.selected().unwrap()].get_source_code(
+                            &self.client,
+                            &self.config.airflow,
+                        ).await?;
+                        log::info!("{}", source_code);
                     }
                     Action::Clear => {
                         if self.mode == Mode::DagRun

@@ -4,3 +4,4 @@ pub mod dag_runs;
 mod log;
 mod task;
 pub mod tasks;
+pub mod dag;

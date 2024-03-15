@@ -28,7 +28,7 @@ pub struct TableDagRuns {
     config: Config,
     mode: Mode,
     columns: Vec<&'static str>,
-    dag_runs: DagRuns,
+    pub(crate) dag_runs: DagRuns,
     pub(crate) table_state: TableState,
     pub(crate) user_search: Option<String>,
     client: Client,

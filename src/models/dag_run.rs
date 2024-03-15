@@ -6,6 +6,8 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
 
+use super::dag::Dag;
+
 #[derive(Deserialize, Debug, Default, Clone)]
 pub struct DagRun {
     conf: Conf,
@@ -48,5 +50,21 @@ impl DagRun {
             .send()
             .await?;
         Ok(())
+    }
+
+    pub async fn get_source_code(&mut self, client: &Client, cfg: &Airflow) -> Result<String> {
+        let dag = client.get(format!("{}/api/v1/dags/{}/details", cfg.host, self.dag_id))
+            .basic_auth(&cfg.username, Some(&cfg.password))
+            .send()
+            .await?
+            .json::<Dag>()
+            .await;
+        let source_code = client.get(format!("{}/api/v1/dagSources/{}", cfg.host, dag.unwrap().dag_id))
+            .basic_auth(&cfg.username, Some(&cfg.password))
+            .send()
+            .await?
+            .text()
+            .await?;
+        Ok(source_code)
     }
 }
