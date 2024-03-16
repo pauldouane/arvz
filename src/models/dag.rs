@@ -17,7 +17,7 @@ pub struct Dag {
     last_pickled: Option<String>,
     max_active_runs: Option<i32>,
     max_active_tasks: Option<i32>,
-    next_dagrun: Option<i32>,
+    next_dagrun: Option<String>,
     next_dagrun_create_after: Option<String>,
     next_dagrun_data_interval_end: Option<String>,
     next_dagrun_data_interval_start: Option<String>,
