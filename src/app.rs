@@ -324,6 +324,7 @@ impl App {
                         self.status_bar.mode_breadcrumb.clear();
                         self.mode = Mode::DagRun;
                         self.status_bar.register_mode(self.mode);
+                        self.table_dag_runs.position = None;
                     }
                     Action::Code => {
                         self.mode = Mode::Code;
