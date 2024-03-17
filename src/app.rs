@@ -254,6 +254,7 @@ impl App {
                             let main_chunk = Layout::default()
                                 .direction(Direction::Vertical)
                                 .constraints(constraints)
+                                .margin(1)
                                 .split(f.size());
                             let top_chunk = Layout::default()
                                 .direction(Direction::Horizontal)
