@@ -8,4 +8,5 @@ pub enum Mode {
     Task,
     Log,
     Code,
+    Command,
 }

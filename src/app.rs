@@ -9,6 +9,7 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use crate::components::ascii::Ascii;
+use crate::components::command::Command;
 use crate::components::command_search::CommandSearch;
 use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
@@ -42,6 +43,7 @@ pub struct App {
     table_dag_runs: TableDagRuns,
     status_bar: StatusBar,
     command_search: CommandSearch,
+    command: Command,
 }
 
 impl App {
@@ -68,6 +70,7 @@ impl App {
             table_dag_runs: TableDagRuns::new(),
             status_bar: StatusBar::new(),
             command_search: CommandSearch::new(),
+            command: Command::new(),
         })
     }
 
@@ -185,6 +188,9 @@ impl App {
                 if let Some(action) = self.command_search.handle_events(Some(e.clone()))? {
                     action_tx.send(action)?;
                 }
+                if let Some(action) = self.command.handle_events(Some(e.clone()))? {
+                    action_tx.send(action)?;
+                }
                 if let Some(action) = self.table_dag_runs.handle_events(Some(e.clone()))? {
                     action_tx.send(action)?;
                 }
@@ -237,7 +243,7 @@ impl App {
                         tui.draw(|f| {
                             let constraints = vec![
                                 Constraint::Length(6),
-                                if self.mode == Mode::Search {
+                                if self.mode == Mode::Search || self.mode == Mode::Command {
                                     Constraint::Length(3)
                                 } else {
                                     Constraint::Percentage(0)
@@ -286,6 +292,15 @@ impl App {
                                 }
                             }
 
+                            if self.mode == Mode::Command {
+                                let r = self.command.draw(f, search_chunk[0]);
+                                if let Err(e) = r {
+                                    action_tx
+                                        .send(Action::Error(format!("Failed to draw: {:?}", e)))
+                                        .unwrap();
+                                }
+                            }
+
                             let r = self.shortcut.draw(f, top_chunk[1]);
                             if let Err(e) = r {
                                 action_tx
@@ -320,8 +335,14 @@ impl App {
                         self.mode = Mode::Search;
                         self.status_bar.register_mode(self.mode);
                     }
+                    Action::Command => {
+                        self.status_bar.mode_breadcrumb.push(Mode::DagRun);
+                        self.mode = Mode::Command;
+                        self.status_bar.register_mode(self.mode);
+                    }
                     Action::DagRun => {
                         self.status_bar.mode_breadcrumb.clear();
+                        self.command.command = None;
                         self.mode = Mode::DagRun;
                         self.status_bar.register_mode(self.mode);
                         self.table_dag_runs.position = None;
@@ -482,6 +503,11 @@ impl App {
                     action_tx.send(action)?
                 };
                 self.command_search.handle_mode(self.mode)?;
+
+                if let Some(action) = self.command.update(action.clone())? {
+                    action_tx.send(action)?
+                };
+                self.command.handle_mode(self.mode)?;
 
                 if let Some(action) = self.table_dag_runs.update(action.clone())? {
                     action_tx.send(action)?

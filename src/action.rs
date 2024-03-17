@@ -31,4 +31,5 @@ pub enum Action {
     PreviousTryNumber,
     Down,
     Up,
+    Command,
 }
