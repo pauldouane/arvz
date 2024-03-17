@@ -324,6 +324,7 @@ impl App {
                         self.status_bar.mode_breadcrumb.clear();
                         self.mode = Mode::DagRun;
                         self.status_bar.register_mode(self.mode);
+                        self.table_dag_runs.position = None;
                     }
                     Action::Code => {
                         self.mode = Mode::Code;
@@ -335,7 +336,6 @@ impl App {
                         .get_source_code(&self.client, &self.config.airflow)
                         .await?;
                         self.table_dag_runs.code = source_code.clone();
-                        log::info!("{}", source_code);
                     }
                     Action::Clear => {
                         if self.mode == Mode::DagRun

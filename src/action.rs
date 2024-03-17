@@ -29,4 +29,6 @@ pub enum Action {
     Log,
     NextTryNumber,
     PreviousTryNumber,
+    Down,
+    Up,
 }

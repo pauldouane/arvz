@@ -1,3 +1,4 @@
+use std::usize;
 use std::{collections::HashMap, time::Duration};
 
 use color_eyre::eyre::Result;
@@ -37,6 +38,9 @@ pub struct TableDagRuns {
     pub(crate) log: String,
     pub(crate) code: String,
     pub try_number: usize,
+    pub scrollbar: Option<ScrollbarState>,
+    pub position: Option<usize>,
+    pub heigh_lines: u16,
 }
 
 impl TableDagRuns {
@@ -62,6 +66,9 @@ impl TableDagRuns {
             log: String::from(""),
             code: String::from(""),
             try_number: 1,
+            scrollbar: None,
+            position: None,
+            heigh_lines: 0,
         }
     }
 
@@ -144,6 +151,23 @@ impl Component for TableDagRuns {
                 self.handle_mode(Mode::Task)?;
                 self.columns = vec!["OPERATOR", "TASK ID", "TRY NUMBER", "STATE", "DURATION"];
             }
+            Action::Up => {
+                if self.position.unwrap() > 0 {
+                    self.position = Some(self.position.unwrap() - 1);
+                }
+            }
+            Action::Down => {
+                let lines = if self.mode == Mode::Log {
+                    self.log.lines().count()
+                } else {
+                    self.code.lines().count() + 2
+                };
+                if lines > self.heigh_lines as usize {
+                    if self.position.unwrap() < (lines - self.heigh_lines as usize) {
+                        self.position = Some(self.position.unwrap() + 1);
+                    }
+                }
+            }
             _ => {}
         }
         Ok(None)
@@ -209,34 +233,24 @@ impl Component for TableDagRuns {
         }
 
         if self.mode == Mode::Log || self.mode == Mode::Code {
+            self.heigh_lines = area.height;
+            if self.position.is_none() {
+                self.position = Some(0);
+            }
             let log = Paragraph::new(if self.mode == Mode::Log {
-                self.log.as_str()
+                Text::raw(&self.log)
             } else {
-                self.code.as_str()
+                Text::raw(&self.code)
             })
+            .scroll((self.position.unwrap() as u16, 0))
             .block(
                 Block::default()
                     .title(Line::from(title))
                     .title_alignment(Alignment::Center)
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::LightBlue)),
-            )
-            .wrap(Wrap { trim: true });
-            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                .begin_symbol(Some("↑"))
-                .end_symbol(Some("↓"));
-            let vertical_scroll = 0; // from app state
-            let mut scrollbar_state = ScrollbarState::new(self.log.len()).position(vertical_scroll);
-            f.render_widget(log, area);
-            f.render_stateful_widget(
-                scrollbar,
-                area.inner(&Margin {
-                    // using an inner vertical margin of 1 unit makes the scrollbar inside the block
-                    vertical: 1,
-                    horizontal: 0,
-                }),
-                &mut scrollbar_state,
             );
+            f.render_widget(log, area);
             return Ok(());
         } else {
             let table = Table::new(rows, widths)
