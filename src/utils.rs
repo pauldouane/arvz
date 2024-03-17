@@ -1,9 +1,18 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
+
+use crate::components::Component;
+use crate::mode::Mode;
+use crate::{chunk::Chunk, components};
+use ratatui::layout::Direction;
+use ratatui::prelude::Layout;
+use std::rc::Rc;
 
 use color_eyre::eyre::Result;
 use crossterm::event::KeyCode;
 use directories::ProjectDirs;
 use lazy_static::lazy_static;
+use ratatui::layout::Constraint;
+use ratatui::prelude::Rect;
 use tracing::error;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{

@@ -1,8 +1,14 @@
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use color_eyre::eyre::Result;
 use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::layout::Rect;
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::chunk::Chunk;
+use crate::components::context_informations::ContextInformation;
+use crate::components::shortcut::Shortcut;
 use crate::mode::Mode;
 use crate::{
     action::Action,

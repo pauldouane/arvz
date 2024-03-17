@@ -1,12 +1,10 @@
+use core::panicking::panic;
 use std::{
     ops::{Deref, DerefMut},
     time::Duration,
 };
 
-use crate::components::context_informations::ContextInformation;
-use crate::components::Component;
-
-use crate::chunk::{self, Chunk};
+use crate::chunk::Chunk;
 use crate::mode::Mode;
 use lazy_static::lazy_static;
 use ratatui::layout::Direction;
@@ -121,13 +119,6 @@ impl Tui {
         self
     }
 
-    pub fn set_components<'a>(&'a self, hash: &mut HashMap<&'a Rc<[Rect]>, Box<dyn Component>>) {
-        hash.insert(
-            self.main_chunks.get(&Chunk::ContextInformations).unwrap(),
-            Box::new(ContextInformation::new()),
-        );
-    }
-
     pub fn generate_main_constraint(&self, mode: Mode) -> Vec<Constraint> {
         let input_length: Constraint = if INPUTS_MODES.contains(&mode) {
             Constraint::Length(*INPUT_LENGTH)
@@ -162,27 +153,25 @@ impl Tui {
                 ])
                 .split(self.main_chunks.get(&Chunk::Main).unwrap()[0]),
         );
-        self.main_chunks.insert(
-            Chunk::Input,
-            Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(vec![Constraint::Percentage(100)])
-                .split(self.main_chunks.get(&Chunk::Main).unwrap()[0]),
-        );
-        self.main_chunks.insert(
-            Chunk::Table,
-            Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(vec![Constraint::Percentage(100)])
-                .split(self.main_chunks.get(&Chunk::Main).unwrap()[0]),
-        );
-        self.main_chunks.insert(
-            Chunk::StatusBar,
-            Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(vec![Constraint::Percentage(100)])
-                .split(self.main_chunks.get(&Chunk::Main).unwrap()[0]),
-        );
+        self.main_chunks.insert(Chunk::Input, 
+                Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(vec![Constraint::Percentage(100)])
+                    .split(self.main_chunks.get(&Chunk::Main).unwrap()[0])
+
+            );
+    self.main_chunks.insert(Chunk::Table, 
+Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(vec![Constraint::Percentage(100)])
+                    .split(self.main_chunks.get(&chunk::main).unwrap()[0])
+
+            );
+                let bottom_chunk = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints(vec![Constraint::Percentage(100)])
+                    .split(main_chunk[3]);
+        */
     }
 
     pub fn start(&mut self) {
