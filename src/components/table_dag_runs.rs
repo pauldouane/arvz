@@ -162,7 +162,9 @@ impl Component for TableDagRuns {
                 } else {
                     self.code.lines().count() + 2
                 };
-                if lines > self.heigh_lines as usize && self.position.unwrap() < (lines - self.heigh_lines as usize) {
+                if lines > self.heigh_lines as usize
+                    && self.position.unwrap() < (lines - self.heigh_lines as usize)
+                {
                     self.position = Some(self.position.unwrap() + 1);
                 }
             }
