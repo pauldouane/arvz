@@ -11,6 +11,7 @@ use crate::{
 };
 
 pub mod ascii;
+pub mod command;
 pub mod command_search;
 pub mod context_informations;
 pub mod fps;
