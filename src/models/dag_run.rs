@@ -67,7 +67,6 @@ impl DagRun {
                 .await?
                 .text()
                 .await?;
-            log::info!("{:?}", source_code.lines());
             return Ok(source_code);
         }
         Ok(String::from(""))

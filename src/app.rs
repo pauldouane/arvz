@@ -336,7 +336,6 @@ impl App {
                         .get_source_code(&self.client, &self.config.airflow)
                         .await?;
                         self.table_dag_runs.code = source_code.clone();
-                        log::info!("{}", source_code);
                     }
                     Action::Clear => {
                         if self.mode == Mode::DagRun
