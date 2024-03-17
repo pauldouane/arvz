@@ -14,8 +14,6 @@ use serde_json::Value as JsonValue;
 
 use crate::{action::Action, mode::Mode};
 
-const CONFIG: &str = include_str!("../.config/config.json5");
-
 #[derive(Clone, Debug, Deserialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
@@ -38,7 +36,6 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Result<Self, config::ConfigError> {
-        let default_config: Config = json5::from_str(CONFIG).unwrap();
         let data_dir = crate::utils::get_data_dir();
         let config_dir = crate::utils::get_config_dir();
         let mut builder = config::Config::builder()
@@ -60,34 +57,14 @@ impl Config {
                     .required(false),
             );
             if config_dir.join(file).exists() {
-                found_config = true
+                found_config = true;
             }
         }
         if !found_config {
             log::error!("No configuration file found. Application may not behave as expected");
         }
 
-        let mut cfg: Self = builder.build()?.try_deserialize()?;
-
-        for (mode, default_bindings) in default_config.keybindings.iter() {
-            let user_bindings = cfg.keybindings.entry(*mode).or_default();
-            for (key, cmd) in default_bindings.iter() {
-                user_bindings
-                    .entry(key.clone())
-                    .or_insert_with(|| cmd.clone());
-            }
-        }
-        for (mode, default_styles) in default_config.styles.iter() {
-            let user_styles = cfg.styles.entry(*mode).or_default();
-            for (style_key, style) in default_styles.iter() {
-                user_styles
-                    .entry(style_key.clone())
-                    .or_insert_with(|| *style);
-            }
-        }
-
-        // Airflow
-        cfg.airflow = default_config.airflow;
+        let cfg: Self = builder.build()?.try_deserialize()?;
 
         Ok(cfg)
     }
@@ -476,20 +453,6 @@ mod tests {
     fn test_parse_color_unknown() {
         let color = parse_color("unknown");
         assert_eq!(color, None);
-    }
-
-    #[test]
-    fn test_config() -> Result<()> {
-        let c = Config::new()?;
-        assert_eq!(
-            c.keybindings
-                .get(&Mode::Home)
-                .unwrap()
-                .get(&parse_key_sequence("<q>").unwrap_or_default())
-                .unwrap(),
-            &Action::Quit
-        );
-        Ok(())
     }
 
     #[test]
