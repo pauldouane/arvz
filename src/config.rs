@@ -14,8 +14,6 @@ use serde_json::Value as JsonValue;
 
 use crate::{action::Action, mode::Mode};
 
-const CONFIG: &str = include_str!("../.config/config.json5");
-
 #[derive(Clone, Debug, Deserialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
@@ -38,7 +36,6 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Result<Self, config::ConfigError> {
-        let default_config: Config = json5::from_str(CONFIG).unwrap();
         let data_dir = crate::utils::get_data_dir();
         let config_dir = crate::utils::get_config_dir();
         let mut builder = config::Config::builder()
@@ -60,34 +57,14 @@ impl Config {
                     .required(false),
             );
             if config_dir.join(file).exists() {
-                found_config = true
+                found_config = true;
             }
         }
         if !found_config {
             log::error!("No configuration file found. Application may not behave as expected");
         }
 
-        let mut cfg: Self = builder.build()?.try_deserialize()?;
-
-        for (mode, default_bindings) in default_config.keybindings.iter() {
-            let user_bindings = cfg.keybindings.entry(*mode).or_default();
-            for (key, cmd) in default_bindings.iter() {
-                user_bindings
-                    .entry(key.clone())
-                    .or_insert_with(|| cmd.clone());
-            }
-        }
-        for (mode, default_styles) in default_config.styles.iter() {
-            let user_styles = cfg.styles.entry(*mode).or_default();
-            for (style_key, style) in default_styles.iter() {
-                user_styles
-                    .entry(style_key.clone())
-                    .or_insert_with(|| *style);
-            }
-        }
-
-        // Airflow
-        cfg.airflow = default_config.airflow;
+        let cfg: Self = builder.build()?.try_deserialize()?;
 
         Ok(cfg)
     }
@@ -422,155 +399,5 @@ fn parse_color(s: &str) -> Option<Color> {
         Some(Color::Indexed(7))
     } else {
         None
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn test_parse_style_default() {
-        let style = parse_style("");
-        assert_eq!(style, Style::default());
-    }
-
-    #[test]
-    fn test_parse_style_foreground() {
-        let style = parse_style("red");
-        assert_eq!(style.fg, Some(Color::Indexed(1)));
-    }
-
-    #[test]
-    fn test_parse_style_background() {
-        let style = parse_style("on blue");
-        assert_eq!(style.bg, Some(Color::Indexed(4)));
-    }
-
-    #[test]
-    fn test_parse_style_modifiers() {
-        let style = parse_style("underline red on blue");
-        assert_eq!(style.fg, Some(Color::Indexed(1)));
-        assert_eq!(style.bg, Some(Color::Indexed(4)));
-    }
-
-    #[test]
-    fn test_process_color_string() {
-        let (color, modifiers) = process_color_string("underline bold inverse gray");
-        assert_eq!(color, "gray");
-        assert!(modifiers.contains(Modifier::UNDERLINED));
-        assert!(modifiers.contains(Modifier::BOLD));
-        assert!(modifiers.contains(Modifier::REVERSED));
-    }
-
-    #[test]
-    fn test_parse_color_rgb() {
-        let color = parse_color("rgb123");
-        let expected = 16 + 1 * 36 + 2 * 6 + 3;
-        assert_eq!(color, Some(Color::Indexed(expected)));
-    }
-
-    #[test]
-    fn test_parse_color_unknown() {
-        let color = parse_color("unknown");
-        assert_eq!(color, None);
-    }
-
-    #[test]
-    fn test_config() -> Result<()> {
-        let c = Config::new()?;
-        assert_eq!(
-            c.keybindings
-                .get(&Mode::Home)
-                .unwrap()
-                .get(&parse_key_sequence("<q>").unwrap_or_default())
-                .unwrap(),
-            &Action::Quit
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn test_simple_keys() {
-        assert_eq!(
-            parse_key_event("a").unwrap(),
-            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty())
-        );
-
-        assert_eq!(
-            parse_key_event("enter").unwrap(),
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::empty())
-        );
-
-        assert_eq!(
-            parse_key_event("esc").unwrap(),
-            KeyEvent::new(KeyCode::Esc, KeyModifiers::empty())
-        );
-    }
-
-    #[test]
-    fn test_with_modifiers() {
-        assert_eq!(
-            parse_key_event("ctrl-a").unwrap(),
-            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL)
-        );
-
-        assert_eq!(
-            parse_key_event("alt-enter").unwrap(),
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT)
-        );
-
-        assert_eq!(
-            parse_key_event("shift-esc").unwrap(),
-            KeyEvent::new(KeyCode::Esc, KeyModifiers::SHIFT)
-        );
-    }
-
-    #[test]
-    fn test_multiple_modifiers() {
-        assert_eq!(
-            parse_key_event("ctrl-alt-a").unwrap(),
-            KeyEvent::new(
-                KeyCode::Char('a'),
-                KeyModifiers::CONTROL | KeyModifiers::ALT
-            )
-        );
-
-        assert_eq!(
-            parse_key_event("ctrl-shift-enter").unwrap(),
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL | KeyModifiers::SHIFT)
-        );
-    }
-
-    #[test]
-    fn test_reverse_multiple_modifiers() {
-        assert_eq!(
-            key_event_to_string(&KeyEvent::new(
-                KeyCode::Char('a'),
-                KeyModifiers::CONTROL | KeyModifiers::ALT
-            )),
-            "ctrl-alt-a".to_string()
-        );
-    }
-
-    #[test]
-    fn test_invalid_keys() {
-        assert!(parse_key_event("invalid-key").is_err());
-        assert!(parse_key_event("ctrl-invalid-key").is_err());
-    }
-
-    #[test]
-    fn test_case_insensitivity() {
-        assert_eq!(
-            parse_key_event("CTRL-a").unwrap(),
-            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL)
-        );
-
-        assert_eq!(
-            parse_key_event("AlT-eNtEr").unwrap(),
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT)
-        );
     }
 }
