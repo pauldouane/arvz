@@ -18,6 +18,7 @@ use crate::{
 pub struct ContextInformation {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
+    area: usize,
     total_dag_runs: u32,
     total_dag_runs_running: u32,
     total_dag_runs_failed: u32,
@@ -31,6 +32,7 @@ impl ContextInformation {
         Self {
             command_tx: None,
             config: Config::default(),
+            area: 0,
             total_dag_runs: 0,
             total_dag_runs_running: 0,
             total_dag_runs_failed: 0,
@@ -64,6 +66,10 @@ impl Component for ContextInformation {
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
         {}
         Ok(None)
+    }
+
+    fn get_area(&self) -> usize {
+        0
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {

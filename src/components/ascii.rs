@@ -18,6 +18,7 @@ pub struct Ascii {
     command_tx: Option<UnboundedSender<Action>>,
     ascii: &'static str,
     config: Config,
+    area: usize,
 }
 
 impl Ascii {
@@ -32,6 +33,7 @@ impl Ascii {
  \__,_|_|    \_/ /___|
             ",
             config: Config::default(),
+            area: 2,
         }
     }
 }
@@ -50,6 +52,10 @@ impl Component for Ascii {
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
         {}
         Ok(None)
+    }
+
+    fn get_area(&self) -> usize {
+        2
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {

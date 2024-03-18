@@ -22,12 +22,18 @@ use crate::{
 pub struct Shortcut {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
+    area: usize,
     mode: Mode,
 }
 
 impl Shortcut {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            command_tx: None,
+            config: Config::default(),
+            area: 1,
+            mode: Mode::DagRun,
+        }
     }
 
     pub fn register_mode(&mut self, mode: Mode) {
@@ -49,6 +55,10 @@ impl Component for Shortcut {
     fn update(&mut self, action: Action) -> Result<Option<Action>> {
         {}
         Ok(None)
+    }
+
+    fn get_area(&self) -> usize {
+        1
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {

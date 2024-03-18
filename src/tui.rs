@@ -74,7 +74,6 @@ pub struct Tui {
     pub tick_rate: f64,
     pub mouse: bool,
     pub paste: bool,
-    pub main_chunks: HashMap<Chunk, Rc<[Rect]>>,
 }
 
 impl Tui {
@@ -97,7 +96,6 @@ impl Tui {
             tick_rate,
             mouse,
             paste,
-            main_chunks: HashMap::new(),
         })
     }
 
@@ -121,13 +119,6 @@ impl Tui {
         self
     }
 
-    pub fn set_components<'a>(&'a self, hash: &mut HashMap<&'a Rc<[Rect]>, Box<dyn Component>>) {
-        hash.insert(
-            self.main_chunks.get(&Chunk::ContextInformations).unwrap(),
-            Box::new(ContextInformation::new()),
-        );
-    }
-
     pub fn generate_main_constraint(&self, mode: Mode) -> Vec<Constraint> {
         let input_length: Constraint = if INPUTS_MODES.contains(&mode) {
             Constraint::Length(*INPUT_LENGTH)
@@ -142,8 +133,8 @@ impl Tui {
         ]
     }
 
-    pub fn generate_main_chunks(&mut self, mode: Mode) {
-        self.main_chunks.insert(
+    pub fn generate_main_chunks(&mut self, hash: &mut HashMap<Chunk, Rc<[Rect]>>, mode: Mode) {
+        hash.insert(
             Chunk::Main,
             Layout::default()
                 .direction(Direction::Vertical)
@@ -151,7 +142,7 @@ impl Tui {
                 .margin(1)
                 .split(self.size().unwrap()),
         );
-        self.main_chunks.insert(
+        hash.insert(
             Chunk::ContextInformations,
             Layout::default()
                 .direction(Direction::Horizontal)
@@ -160,28 +151,28 @@ impl Tui {
                     Constraint::Fill(1),
                     Constraint::Length(22),
                 ])
-                .split(self.main_chunks.get(&Chunk::Main).unwrap()[0]),
+                .split(hash.get(&Chunk::Main).unwrap()[0]),
         );
-        self.main_chunks.insert(
+        hash.insert(
             Chunk::Input,
             Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(vec![Constraint::Percentage(100)])
-                .split(self.main_chunks.get(&Chunk::Main).unwrap()[0]),
+                .split(hash.get(&Chunk::Main).unwrap()[0]),
         );
-        self.main_chunks.insert(
+        hash.insert(
             Chunk::Table,
             Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(vec![Constraint::Percentage(100)])
-                .split(self.main_chunks.get(&Chunk::Main).unwrap()[0]),
+                .split(hash.get(&Chunk::Main).unwrap()[0]),
         );
-        self.main_chunks.insert(
+        hash.insert(
             Chunk::StatusBar,
             Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints(vec![Constraint::Percentage(100)])
-                .split(self.main_chunks.get(&Chunk::Main).unwrap()[0]),
+                .split(hash.get(&Chunk::Main).unwrap()[0]),
         );
     }
 

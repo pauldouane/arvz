@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -16,6 +17,8 @@ use crate::{
     tui::{Event, Frame},
 };
 
+use self::ascii::Ascii;
+
 pub mod ascii;
 pub mod command;
 pub mod command_search;
@@ -25,10 +28,23 @@ pub mod shortcut;
 pub mod status_bar;
 pub mod table_dag_runs;
 
+pub fn set_components(hash: &mut HashMap<Chunk, Box<dyn Component>>) {
+    hash.insert(
+        Chunk::ContextInformations,
+        Box::new(ContextInformation::new()),
+    );
+    hash.insert(Chunk::ContextInformations, Box::new(Shortcut::new()));
+    hash.insert(Chunk::ContextInformations, Box::new(Ascii::new()));
+    panic!("{:?}", hash.len());
+}
+
 /// `Component` is a trait that represents a visual and interactive element of the user interface.
 /// Implementors of this trait can be registered with the main application loop and will be able to receive events,
 /// update state, and be rendered on the screen.
 pub trait Component {
+    fn get_area(&self) -> usize {
+        0
+    }
     /// Register an action handler that can send actions for processing if necessary.
     ///
     /// # Arguments

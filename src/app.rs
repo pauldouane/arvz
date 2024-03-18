@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -16,6 +17,7 @@ use crate::components::ascii::Ascii;
 use crate::components::command::Command;
 use crate::components::command_search::CommandSearch;
 use crate::components::context_informations::{self, ContextInformation};
+use crate::components::set_components;
 use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
 use crate::components::table_dag_runs::TableDagRuns;
@@ -29,7 +31,7 @@ use crate::{
     tui,
 };
 
-pub struct App<'a> {
+pub struct App {
     pub config: Config,
     pub tick_rate: f64,
     pub frame_rate: f64,
@@ -37,10 +39,11 @@ pub struct App<'a> {
     pub should_suspend: bool,
     pub last_tick_key_events: Vec<KeyEvent>,
     pub mode: Mode,
-    pub components: HashMap<&'a Rc<[Rect]>, Box<dyn Component>>,
+    pub components: HashMap<Chunk, Box<dyn Component>>,
+    pub chunks: HashMap<Chunk, Rc<[Rect]>>,
 }
 
-impl App<'_> {
+impl App {
     pub async fn new(tick_rate: f64, frame_rate: f64) -> Result<Self> {
         let fps = FpsCounter::default();
         let config = Config::new()?;
@@ -55,6 +58,7 @@ impl App<'_> {
             config,
             mode,
             components: HashMap::new(),
+            chunks: HashMap::new(),
         })
     }
 
@@ -64,8 +68,7 @@ impl App<'_> {
         // tui.mouse(true);
         tui.enter()?;
 
-        // Get all components
-        tui.set_components(&mut self.components);
+        set_components(&mut self.components);
 
         loop {
             // If the task mode is selected, then fetch the tasks for the selected dag_run
@@ -110,9 +113,10 @@ impl App<'_> {
                         tui.draw(|f| {})?;
                     }
                     Action::Render => {
+                        tui.generate_main_chunks(&mut self.chunks, self.mode);
                         tui.draw(|f| {
-                            for (chunk, component) in self.components.iter_mut() {
-                                component.draw(f, chunk[0]).unwrap();
+                            for (ch, co) in self.components.iter_mut() {
+                                log::info!("{:?}", co.get_area());
                             }
                         })?;
                     }
