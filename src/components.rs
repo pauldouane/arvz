@@ -28,14 +28,13 @@ pub mod shortcut;
 pub mod status_bar;
 pub mod table_dag_runs;
 
-pub fn set_components(hash: &mut HashMap<Chunk, Box<dyn Component>>) {
-    hash.insert(
-        Chunk::ContextInformations,
+pub fn set_components(hash: &mut Vec<(Box<dyn Component>, Chunk)>) {
+    hash.push((
         Box::new(ContextInformation::new()),
-    );
-    hash.insert(Chunk::ContextInformations, Box::new(Shortcut::new()));
-    hash.insert(Chunk::ContextInformations, Box::new(Ascii::new()));
-    panic!("{:?}", hash.len());
+        Chunk::ContextInformations,
+    ));
+    hash.push((Box::new(Shortcut::new()), Chunk::ContextInformations));
+    hash.push((Box::new(Ascii::new()), Chunk::ContextInformations));
 }
 
 /// `Component` is a trait that represents a visual and interactive element of the user interface.

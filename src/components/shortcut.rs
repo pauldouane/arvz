@@ -30,7 +30,7 @@ impl Shortcut {
     pub fn new() -> Self {
         Self {
             command_tx: None,
-            config: Config::default(),
+            config: Config::new().unwrap(),
             area: 1,
             mode: Mode::DagRun,
         }

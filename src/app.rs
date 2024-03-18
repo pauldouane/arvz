@@ -39,7 +39,7 @@ pub struct App {
     pub should_suspend: bool,
     pub last_tick_key_events: Vec<KeyEvent>,
     pub mode: Mode,
-    pub components: HashMap<Chunk, Box<dyn Component>>,
+    pub components: Vec<(Box<dyn Component>, Chunk)>,
     pub chunks: HashMap<Chunk, Rc<[Rect]>>,
 }
 
@@ -57,7 +57,7 @@ impl App {
             last_tick_key_events: Vec::new(),
             config,
             mode,
-            components: HashMap::new(),
+            components: vec![],
             chunks: HashMap::new(),
         })
     }
@@ -115,8 +115,9 @@ impl App {
                     Action::Render => {
                         tui.generate_main_chunks(&mut self.chunks, self.mode);
                         tui.draw(|f| {
-                            for (ch, co) in self.components.iter_mut() {
-                                log::info!("{:?}", co.get_area());
+                            for (co, ch) in self.components.iter_mut() {
+                                co.draw(f, self.chunks.get(ch).unwrap()[co.get_area()])
+                                    .unwrap();
                             }
                         })?;
                     }
