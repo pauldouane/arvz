@@ -1,4 +1,8 @@
+use crate::components::LinkedComponent;
+use core::cell::RefCell;
 use core::panic;
+use core::panicking::panic;
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -41,6 +45,7 @@ pub struct App {
     pub mode: Mode,
     pub components: Vec<(Box<dyn Component>, Chunk)>,
     pub chunks: HashMap<Chunk, Rc<[Rect]>>,
+    pub linked_component: LinkedComponent,
 }
 
 impl App {
@@ -49,6 +54,13 @@ impl App {
         let config = Config::new()?;
         let mode = Mode::DagRun;
         let client = Client::new();
+
+        // Init of all Rc (Reference single thread) for all components
+        let linked_list = LinkedComponent::new()
+            .add(Rc::new(RefCell::new(ContextInformation::new())))
+            .add(Rc::new(RefCell::new(Shortcut::new())))
+            .add(Rc::new(RefCell::new(Ascii::new())));
+
         Ok(Self {
             tick_rate,
             frame_rate,
@@ -59,6 +71,7 @@ impl App {
             mode,
             components: vec![],
             chunks: HashMap::new(),
+            linked_component: linked_list,
         })
     }
 
@@ -118,6 +131,9 @@ impl App {
                             for (co, ch) in self.components.iter_mut() {
                                 co.draw(f, self.chunks.get(ch).unwrap()[co.get_area()])
                                     .unwrap();
+                            }
+                            while let Some(node) = &self.linked_component.head {
+                                let mut _node_borrowed = node.borrow();
                             }
                         })?;
                     }

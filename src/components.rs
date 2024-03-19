@@ -1,5 +1,9 @@
+use core::cell::RefCell;
+use core::fmt;
 use core::panic;
+use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::fmt::format;
 use std::rc::Rc;
 
 use color_eyre::eyre::Result;
@@ -164,13 +168,24 @@ pub trait Component {
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()>;
 }
 
+impl fmt::Display for dyn Component {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        write!(f, "{}", self)
+    }
+}
+
 pub struct Node {
-    component: Rc<dyn Component>,
-    next: Option<Rc<Node>>,
+    pub component: Rc<RefCell<dyn Component>>,
+    next: Option<Rc<RefCell<Node>>>,
 }
 
 pub struct LinkedComponent {
-    head: Option<Rc<Node>>,
+    pub head: Option<Rc<RefCell<Node>>>,
 }
 
 impl LinkedComponent {
@@ -178,11 +193,11 @@ impl LinkedComponent {
         LinkedComponent { head: None }
     }
 
-    pub fn add(&mut self, component: Rc<dyn Component>) -> Self {
-        let new_node = Rc::new(Node {
+    pub fn add(&mut self, component: Rc<RefCell<dyn Component>>) -> Self {
+        let new_node = Rc::new(RefCell::new(Node {
             component,
             next: self.head.clone(),
-        });
+        }));
         LinkedComponent {
             head: Some(new_node),
         }

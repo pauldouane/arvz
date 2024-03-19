@@ -103,7 +103,7 @@ impl Tui {
             tick_rate,
             mouse,
             paste,
-            linked_component: LinkedComponent::new().add(test),
+            linked_component: linked_list,
         })
     }
 
@@ -185,6 +185,7 @@ impl Tui {
     }
 
     pub fn start(&mut self) {
+        log::info!("{}", self.linked_component);
         let tick_delay = std::time::Duration::from_secs_f64(1.0 / self.tick_rate);
         let render_delay = std::time::Duration::from_secs_f64(1.0 / self.frame_rate);
         self.cancel();
