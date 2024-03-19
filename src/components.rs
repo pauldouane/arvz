@@ -163,3 +163,28 @@ pub trait Component {
     /// * `Result<()>` - An Ok result or an error.
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()>;
 }
+
+pub struct Node {
+    component: Rc<dyn Component>,
+    next: Option<Rc<Node>>,
+}
+
+pub struct LinkedComponent {
+    head: Option<Rc<Node>>,
+}
+
+impl LinkedComponent {
+    pub fn new() -> Self {
+        LinkedComponent { head: None }
+    }
+
+    pub fn add(&mut self, component: Rc<dyn Component>) -> Self {
+        let new_node = Rc::new(Node {
+            component,
+            next: self.head.clone(),
+        });
+        LinkedComponent {
+            head: Some(new_node),
+        }
+    }
+}

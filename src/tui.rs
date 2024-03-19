@@ -3,8 +3,8 @@ use std::{
     time::Duration,
 };
 
-use crate::components::context_informations::ContextInformation;
-use crate::components::Component;
+use crate::components::{ascii::Ascii, shortcut::Shortcut, Component};
+use crate::components::{context_informations::ContextInformation, LinkedComponent};
 
 use crate::chunk::{self, Chunk};
 use crate::mode::Mode;
@@ -74,6 +74,7 @@ pub struct Tui {
     pub tick_rate: f64,
     pub mouse: bool,
     pub paste: bool,
+    pub linked_component: LinkedComponent,
 }
 
 impl Tui {
@@ -86,6 +87,12 @@ impl Tui {
         let task = tokio::spawn(async {});
         let mouse = false;
         let paste = false;
+
+        // Init of all Rc (Reference single thread) for all components
+        let linked_list = LinkedComponent::new()
+            .add(Rc::new(ContextInformation::new()))
+            .add(Rc::new(Shortcut::new()))
+            .add(Rc::new(Ascii::new()));
         Ok(Self {
             terminal,
             task,
@@ -96,6 +103,7 @@ impl Tui {
             tick_rate,
             mouse,
             paste,
+            linked_component: LinkedComponent::new().add(test),
         })
     }
 
