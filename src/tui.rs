@@ -1,3 +1,4 @@
+use crate::mode::Mode;
 use std::{
     ops::{Deref, DerefMut},
     time::Duration,
@@ -13,7 +14,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use futures::{FutureExt, StreamExt};
-use ratatui::backend::CrosstermBackend as Backend;
+use ratatui::{backend::CrosstermBackend as Backend, layout::Constraint};
 use serde::{Deserialize, Serialize};
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
@@ -225,6 +226,19 @@ impl Tui {
 
     pub async fn next(&mut self) -> Option<Event> {
         self.event_rx.recv().await
+    }
+
+    pub fn get_main_constraint(&self, mode: Mode) -> [Constraint; 4] {
+        [
+            Constraint::Length(6),
+            if mode == Mode::Search || mode == Mode::Command {
+                Constraint::Length(3)
+            } else {
+                Constraint::Percentage(0)
+            },
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ]
     }
 }
 
