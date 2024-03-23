@@ -23,6 +23,12 @@ pub struct MainLayout {
     pub status_chunk: Option<Rc<[Rect]>>,
 }
 
+impl Default for MainLayout {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MainLayout {
     pub fn new() -> MainLayout {
         MainLayout {

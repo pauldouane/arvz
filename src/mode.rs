@@ -15,9 +15,17 @@ pub enum Mode {
     Command,
 }
 
+pub type RefreshLayoutFnType = Option<RefCell<Box<dyn FnMut(Mode)>>>;
+
 pub struct ObservableMode {
     mode: Mode,
-    refresh_layout_fn: Option<RefCell<Box<dyn FnMut(Mode)>>>,
+    refresh_layout_fn: RefreshLayoutFnType,
+}
+
+impl Default for ObservableMode {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ObservableMode {
