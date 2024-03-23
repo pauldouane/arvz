@@ -1,3 +1,8 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use crate::main_layout::{self, Chunk};
+use crate::mode::ObservableMode;
 use color_eyre::eyre::Result;
 use crossterm::event::KeyEvent;
 use log::log;
@@ -15,6 +20,7 @@ use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
 use crate::components::table_dag_runs::TableDagRuns;
+use crate::main_layout::MainLayout;
 use crate::models::dag_run::DagRun;
 use crate::models::dag_runs::DagRuns;
 use crate::{
@@ -31,7 +37,8 @@ pub struct App {
     pub frame_rate: f64,
     pub should_quit: bool,
     pub should_suspend: bool,
-    pub mode: Mode,
+    pub observable_mode: ObservableMode,
+    pub main_layout: Rc<RefCell<MainLayout>>,
     pub last_tick_key_events: Vec<KeyEvent>,
     pub last_dag_runs_call: Instant,
     pub last_task_call: Option<Instant>,
@@ -57,8 +64,9 @@ impl App {
             frame_rate,
             should_quit: false,
             should_suspend: false,
+            observable_mode: ObservableMode::new(),
             config,
-            mode,
+            main_layout: Rc::new(RefCell::new(MainLayout::new())),
             last_tick_key_events: Vec::new(),
             last_dag_runs_call: Instant::now(),
             last_task_call: None,
@@ -114,6 +122,17 @@ impl App {
         self.ascii.init(tui.size()?)?;
         self.table_dag_runs.init(tui.size()?)?;
 
+        self.main_layout
+            .borrow_mut()
+            .set_tui_size(Rc::new(RefCell::new(tui.size().unwrap())));
+        self.main_layout
+            .borrow_mut()
+            .set_main_layout(&self.observable_mode.get());
+
+        let main_layout_rc = Rc::clone(&self.main_layout);
+        self.observable_mode
+            .set_refresh_layout_fn(move |mode| main_layout_rc.borrow_mut().set_main_layout(&mode));
+
         loop {
             if self.last_dag_runs_call.elapsed().as_secs() == 3 {
                 self.dag_runs
@@ -129,7 +148,7 @@ impl App {
             }
 
             // If the task mode is selected, then fetch the tasks for the selected dag_run
-            if self.mode == Mode::Task {
+            if self.observable_mode.get() == Mode::Task {
                 if let Some(last_task_call) = self.last_task_call {
                     if last_task_call.elapsed().as_secs() >= 2 {
                         self.table_dag_runs.tasks = Some(
@@ -157,7 +176,9 @@ impl App {
                     tui::Event::Render => action_tx.send(Action::Render)?,
                     tui::Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
                     tui::Event::Key(key) => {
-                        if let Some(keymap) = self.config.keybindings.get(&self.mode) {
+                        if let Some(keymap) =
+                            self.config.keybindings.get(&self.observable_mode.get())
+                        {
                             if let Some(action) = keymap.get(&vec![key]) {
                                 log::info!("Got action: {action:?}");
                                 action_tx.send(action.clone())?;
@@ -241,51 +262,19 @@ impl App {
                     }
                     Action::Render => {
                         tui.draw(|f| {
-                            let constraints = vec![
-                                Constraint::Length(6),
-                                if self.mode == Mode::Search || self.mode == Mode::Command {
-                                    Constraint::Length(3)
-                                } else {
-                                    Constraint::Percentage(0)
-                                },
-                                Constraint::Fill(1),
-                                Constraint::Length(1),
-                            ];
-                            let main_chunk = Layout::default()
-                                .direction(Direction::Vertical)
-                                .constraints(constraints)
-                                .margin(1)
-                                .split(f.size());
-                            let top_chunk = Layout::default()
-                                .direction(Direction::Horizontal)
-                                .constraints(vec![
-                                    Constraint::Length(50),
-                                    Constraint::Fill(1),
-                                    Constraint::Length(22),
-                                ])
-                                .split(main_chunk[0]);
-                            let search_chunk = Layout::default()
-                                .direction(Direction::Horizontal)
-                                .constraints(vec![Constraint::Percentage(100)])
-                                .split(main_chunk[1]);
-                            let center_chunk = Layout::default()
-                                .direction(Direction::Horizontal)
-                                .constraints(vec![Constraint::Percentage(100)])
-                                .split(main_chunk[2]);
-                            let bottom_chunk = Layout::default()
-                                .direction(Direction::Horizontal)
-                                .constraints(vec![Constraint::Percentage(100)])
-                                .split(main_chunk[3]);
-
-                            let r = self.context_information.draw(f, top_chunk[0]);
+                            let r = self
+                                .context_information
+                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Context(0)));
                             if let Err(e) = r {
                                 action_tx
                                     .send(Action::Error(format!("Failed to draw: {:?}", e)))
                                     .unwrap();
                             }
 
-                            if self.mode == Mode::Search {
-                                let r = self.command_search.draw(f, search_chunk[0]);
+                            if self.observable_mode.get() == Mode::Search {
+                                let r = self
+                                    .command_search
+                                    .draw(f, self.main_layout.borrow().get_chunk(Chunk::Command));
                                 if let Err(e) = r {
                                     action_tx
                                         .send(Action::Error(format!("Failed to draw: {:?}", e)))
@@ -293,8 +282,10 @@ impl App {
                                 }
                             }
 
-                            if self.mode == Mode::Command {
-                                let r = self.command.draw(f, search_chunk[0]);
+                            if self.observable_mode.get() == Mode::Command {
+                                let r = self
+                                    .command
+                                    .draw(f, self.main_layout.borrow().get_chunk(Chunk::Command));
                                 if let Err(e) = r {
                                     action_tx
                                         .send(Action::Error(format!("Failed to draw: {:?}", e)))
@@ -302,28 +293,36 @@ impl App {
                                 }
                             }
 
-                            let r = self.shortcut.draw(f, top_chunk[1]);
+                            let r = self
+                                .shortcut
+                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Context(1)));
                             if let Err(e) = r {
                                 action_tx
                                     .send(Action::Error(format!("Failed to draw: {:?}", e)))
                                     .unwrap();
                             }
 
-                            let r = self.ascii.draw(f, top_chunk[2]);
+                            let r = self
+                                .ascii
+                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Context(2)));
                             if let Err(e) = r {
                                 action_tx
                                     .send(Action::Error(format!("Failed to draw: {:?}", e)))
                                     .unwrap();
                             }
 
-                            let r = self.table_dag_runs.draw(f, center_chunk[0]);
+                            let r = self
+                                .table_dag_runs
+                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Table));
                             if let Err(e) = r {
                                 action_tx
                                     .send(Action::Error(format!("Failed to draw: {:?}", e)))
                                     .unwrap();
                             }
 
-                            let r = self.status_bar.draw(f, bottom_chunk[0]);
+                            let r = self
+                                .status_bar
+                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Status));
                             if let Err(e) = r {
                                 action_tx
                                     .send(Action::Error(format!("Failed to draw: {:?}", e)))
@@ -333,34 +332,39 @@ impl App {
                     }
                     Action::Search => {
                         self.status_bar.mode_breadcrumb.push(Mode::DagRun);
-                        self.mode = Mode::Search;
-                        self.status_bar.register_mode(self.mode);
+                        self.observable_mode.set_mode(Mode::Search);
+                        self.status_bar.register_mode(self.observable_mode.get());
+                        self.observable_mode.set_mode(Mode::Search);
                     }
                     Action::Command => {
                         self.status_bar.mode_breadcrumb.push(Mode::DagRun);
-                        self.mode = Mode::Command;
-                        self.status_bar.register_mode(self.mode);
+                        self.observable_mode.set_mode(Mode::Command);
+                        self.status_bar.register_mode(self.observable_mode.get());
+                        self.observable_mode.set_mode(Mode::Command);
                     }
                     Action::DagRun => {
                         self.status_bar.mode_breadcrumb.clear();
                         self.command.command = None;
-                        self.mode = Mode::DagRun;
-                        self.status_bar.register_mode(self.mode);
+                        self.observable_mode.set_mode(Mode::DagRun);
+                        self.status_bar.register_mode(self.observable_mode.get());
                         self.table_dag_runs.position = None;
+                        self.observable_mode.set_mode(Mode::DagRun);
                     }
                     Action::Code => {
-                        self.mode = Mode::Code;
+                        self.observable_mode.set_mode(Mode::Code);
                         self.status_bar.mode_breadcrumb.push(Mode::DagRun);
-                        self.status_bar.register_mode(self.mode);
-                        self.table_dag_runs.handle_mode(self.mode)?;
+                        self.status_bar.register_mode(self.observable_mode.get());
+                        self.table_dag_runs
+                            .handle_mode(self.observable_mode.get())?;
                         let source_code = self.table_dag_runs.dag_runs.dag_runs
                             [self.table_dag_runs.table_state.selected().unwrap()]
                         .get_source_code(&self.client, &self.config.airflow)
                         .await?;
                         self.table_dag_runs.code = source_code.clone();
+                        self.observable_mode.set_mode(Mode::Code);
                     }
                     Action::Clear => {
-                        if self.mode == Mode::DagRun
+                        if self.observable_mode.get() == Mode::DagRun
                             && self.table_dag_runs.table_state.selected().is_some()
                         {
                             self.dag_runs.dag_runs
@@ -375,7 +379,7 @@ impl App {
                             .await?;
                         }
 
-                        if self.mode == Mode::Task
+                        if self.observable_mode.get() == Mode::Task
                             && self.table_dag_runs.table_state.selected().is_some()
                         {
                             self.table_dag_runs.tasks.as_mut().unwrap().task_instances
@@ -394,10 +398,11 @@ impl App {
                         self.status_bar.mode_breadcrumb.clear();
                         self.status_bar.mode_breadcrumb.push(Mode::DagRun);
                         if self.table_dag_runs.table_state.selected().is_none() {
-                            self.mode = Mode::DagRun;
+                            self.observable_mode.set_mode(Mode::DagRun);
+                            self.observable_mode.set_mode(Mode::DagRun);
                             break;
                         }
-                        self.mode = Mode::Task;
+                        self.observable_mode.set_mode(Mode::Task);
                         self.table_dag_runs.table_tasks_state.select(Some(0));
                         self.table_dag_runs.tasks = Some(
                             self.dag_runs
@@ -411,15 +416,16 @@ impl App {
                                 )
                                 .await?,
                         );
-                        self.status_bar.register_mode(self.mode);
+                        self.status_bar.register_mode(self.observable_mode.get());
                     }
                     Action::Log => {
                         self.status_bar.mode_breadcrumb.clear();
                         self.status_bar.mode_breadcrumb.push(Mode::DagRun);
                         self.status_bar.mode_breadcrumb.push(Mode::Task);
-                        self.mode = Mode::Log;
-                        self.table_dag_runs.handle_mode(self.mode)?;
-                        self.status_bar.register_mode(self.mode);
+                        self.observable_mode.set_mode(Mode::Log);
+                        self.table_dag_runs
+                            .handle_mode(self.observable_mode.get())?;
+                        self.status_bar.register_mode(self.observable_mode.get());
                         if self.table_dag_runs.table_state.selected().is_some() {
                             let log = self.table_dag_runs.tasks.as_mut().unwrap().task_instances
                                 [self.table_dag_runs.table_tasks_state.selected().unwrap()]
@@ -437,7 +443,7 @@ impl App {
                     }
                     Action::NextTryNumber => {
                         if self.table_dag_runs.table_tasks_state.selected().is_some()
-                            && self.mode == Mode::Log
+                            && self.observable_mode.get() == Mode::Log
                             && self.table_dag_runs.tasks.as_ref().unwrap().task_instances
                                 [self.table_dag_runs.table_tasks_state.selected().unwrap()]
                             .try_number as usize
@@ -461,7 +467,7 @@ impl App {
                     }
                     Action::PreviousTryNumber => {
                         if self.table_dag_runs.table_tasks_state.selected().is_some()
-                            && self.mode == Mode::Log
+                            && self.observable_mode.get() == Mode::Log
                             && self.table_dag_runs.try_number > 1
                         {
                             self.table_dag_runs.try_number -= 1;
@@ -494,7 +500,7 @@ impl App {
                 if let Some(action) = self.shortcut.update(action.clone())? {
                     action_tx.send(action)?
                 };
-                self.shortcut.register_mode(self.mode);
+                self.shortcut.register_mode(self.observable_mode.get());
 
                 if let Some(action) = self.ascii.update(action.clone())? {
                     action_tx.send(action)?
@@ -503,17 +509,19 @@ impl App {
                 if let Some(action) = self.command_search.update(action.clone())? {
                     action_tx.send(action)?
                 };
-                self.command_search.handle_mode(self.mode)?;
+                self.command_search
+                    .handle_mode(self.observable_mode.get())?;
 
                 if let Some(action) = self.command.update(action.clone())? {
                     action_tx.send(action)?
                 };
-                self.command.handle_mode(self.mode)?;
+                self.command.handle_mode(self.observable_mode.get())?;
 
                 if let Some(action) = self.table_dag_runs.update(action.clone())? {
                     action_tx.send(action)?
                 };
-                self.table_dag_runs.handle_mode(self.mode)?;
+                self.table_dag_runs
+                    .handle_mode(self.observable_mode.get())?;
             }
             if self.should_suspend {
                 tui.suspend()?;
