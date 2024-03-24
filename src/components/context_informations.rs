@@ -67,6 +67,7 @@ impl Component for ContextInformation {
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+        log::info!("Draw ContextInformation");
         // Align the value on the right to the same starting point
         let text = vec![
             Line::from(vec![

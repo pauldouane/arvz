@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::main_layout::{self, Chunk};
@@ -20,7 +21,9 @@ use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
 use crate::components::table_dag_runs::TableDagRuns;
+use crate::components::{LinkedComponent};
 use crate::main_layout::MainLayout;
+use crate::mode::Mode::Search;
 use crate::models::dag_run::DagRun;
 use crate::models::dag_runs::DagRuns;
 use crate::{
@@ -51,6 +54,7 @@ pub struct App {
     status_bar: StatusBar,
     command_search: CommandSearch,
     command: Command,
+    linked_components: LinkedComponent,
 }
 
 impl App {
@@ -59,6 +63,35 @@ impl App {
         let config = Config::new()?;
         let mode = Mode::DagRun;
         let client = Client::new();
+
+        let mut linked_components = LinkedComponent::new();
+        linked_components.append(
+            Rc::new(RefCell::new(ContextInformation::new())),
+            Chunk::Context(0),
+            None,
+        );
+        linked_components.append(
+            Rc::new(RefCell::new(Shortcut::new())),
+            Chunk::Context(1),
+            None,
+        );
+        linked_components.append(Rc::new(RefCell::new(Ascii::new())), Chunk::Context(2), None);
+        linked_components.append(
+            Rc::new(RefCell::new(Command::new())),
+            Chunk::CommandChunk,
+            Some(Mode::Command),
+        );
+        linked_components.append(
+            Rc::new(RefCell::new(CommandSearch::new())),
+            Chunk::CommandChunk,
+            Some(Mode::Search),
+        );
+        linked_components.append(
+            Rc::new(RefCell::new(TableDagRuns::new())),
+            Chunk::Table,
+            None,
+        );
+        linked_components.append(Rc::new(RefCell::new(StatusBar::new())), Chunk::Status, None);
         Ok(Self {
             tick_rate,
             frame_rate,
@@ -79,6 +112,7 @@ impl App {
             status_bar: StatusBar::new(),
             command_search: CommandSearch::new(),
             command: Command::new(),
+            linked_components,
         })
     }
 
@@ -99,39 +133,34 @@ impl App {
         // tui.mouse(true);
         tui.enter()?;
 
-        // Register action and config handlers for all components
-        self.context_information
-            .register_action_handler(action_tx.clone())?;
-        self.context_information
-            .register_config_handler(self.config.clone())?;
-
-        self.shortcut.register_action_handler(action_tx.clone())?;
-        self.shortcut.register_config_handler(self.config.clone())?;
-
-        self.ascii.register_action_handler(action_tx.clone())?;
-        self.ascii.register_config_handler(self.config.clone())?;
-
-        self.table_dag_runs
-            .register_action_handler(action_tx.clone())?;
-        self.table_dag_runs
-            .register_config_handler(self.config.clone())?;
-
         // Init the area for all components
         self.context_information.init(tui.size()?)?;
         self.shortcut.init(tui.size()?)?;
         self.ascii.init(tui.size()?)?;
         self.table_dag_runs.init(tui.size()?)?;
 
+        // Set tui_size for the main_layout
         self.main_layout
             .borrow_mut()
             .set_tui_size(Rc::new(RefCell::new(tui.size().unwrap())));
+
+        // Set the default main layout
         self.main_layout
             .borrow_mut()
             .set_main_layout(&self.observable_mode.get());
 
+        // Register the main layout refresh function for the observable mode
         let main_layout_rc = Rc::clone(&self.main_layout);
         self.observable_mode
             .set_refresh_layout_fn(move |mode| main_layout_rc.borrow_mut().set_main_layout(&mode));
+
+        // Register configs for components
+        self.linked_components
+            .register_config_components(&self.config);
+
+        // Register action handlers for components
+        self.linked_components
+            .register_action_components(&action_tx);
 
         loop {
             if self.last_dag_runs_call.elapsed().as_secs() == 3 {
@@ -262,72 +291,13 @@ impl App {
                     }
                     Action::Render => {
                         tui.draw(|f| {
-                            let r = self
-                                .context_information
-                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Context(0)));
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
-
-                            if self.observable_mode.get() == Mode::Search {
-                                let r = self
-                                    .command_search
-                                    .draw(f, self.main_layout.borrow().get_chunk(Chunk::Command));
-                                if let Err(e) = r {
-                                    action_tx
-                                        .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                        .unwrap();
-                                }
-                            }
-
-                            if self.observable_mode.get() == Mode::Command {
-                                let r = self
-                                    .command
-                                    .draw(f, self.main_layout.borrow().get_chunk(Chunk::Command));
-                                if let Err(e) = r {
-                                    action_tx
-                                        .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                        .unwrap();
-                                }
-                            }
-
-                            let r = self
-                                .shortcut
-                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Context(1)));
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
-
-                            let r = self
-                                .ascii
-                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Context(2)));
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
-
-                            let r = self
-                                .table_dag_runs
-                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Table));
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
-
-                            let r = self
-                                .status_bar
-                                .draw(f, self.main_layout.borrow().get_chunk(Chunk::Status));
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
+                            self.linked_components
+                                .draw_components(
+                                    f,
+                                    |chunk| self.main_layout.borrow().get_chunk(chunk),
+                                    self.observable_mode.get(),
+                                )
+                                .expect("Failed to draw components");
                         })?;
                     }
                     Action::Search => {
