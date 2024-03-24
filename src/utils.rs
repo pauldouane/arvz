@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use core::panic;
+use std::rc::Rc;
+use std::{cell::RefCell, path::PathBuf};
 
 use color_eyre::eyre::Result;
 use crossterm::event::KeyCode;
@@ -9,6 +11,10 @@ use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     self, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
 };
+
+use crate::components::status_bar::StatusBar;
+use crate::components::table_dag_runs::TableDagRuns;
+use crate::components::{context_informations::ContextInformation, shortcut::Shortcut, Component};
 
 const VERSION_MESSAGE: &str = concat!(
     env!("CARGO_PKG_VERSION"),

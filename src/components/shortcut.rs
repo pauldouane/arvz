@@ -18,7 +18,7 @@ use crate::{
     config::{Config, KeyBindings},
 };
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Shortcut {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
@@ -27,7 +27,11 @@ pub struct Shortcut {
 
 impl Shortcut {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            command_tx: None,
+            config: Config::default(),
+            mode: Mode::DagRun,
+        }
     }
 
     pub fn register_mode(&mut self, mode: Mode) {
@@ -52,8 +56,6 @@ impl Component for Shortcut {
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-        // Loop through keybindings by mode and display them
-        // Get the number of keybindings for the current mode
         let num_keybindings = self.config.keybindings.get(&self.mode).unwrap().len() as f64;
 
         let number_of_columns = (num_keybindings / 6f64).ceil() as u16;
