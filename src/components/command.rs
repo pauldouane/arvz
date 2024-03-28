@@ -53,7 +53,7 @@ impl Component for Command {
         Ok(())
     }
 
-    fn handle_key_events(&mut self, key: KeyEvent) -> Result<Option<Action>> {
+    fn handle_key_events(&mut self, key: &KeyEvent) -> Result<Option<Action>> {
         if self.mode == Mode::Command {
             get_user_input_by_key(key.code, &mut self.command);
         }

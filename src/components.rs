@@ -23,6 +23,7 @@ pub mod fps;
 pub mod shortcut;
 pub mod status_bar;
 pub mod table_dag_runs;
+pub mod table;
 
 /// `Component` is a trait that represents a visual and interactive element of the user interface.
 /// Implementors of this trait can be registered with the main application loop and will be able to receive events,
@@ -75,7 +76,7 @@ pub trait Component {
     /// # Returns
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
-    fn handle_events(&mut self, event: Option<Event>) -> Result<Option<Action>> {
+    fn handle_events(&mut self, event: Option<&Event>) -> Result<Option<Action>> {
         let r = match event {
             Some(Event::Key(key_event)) => self.handle_key_events(key_event)?,
             Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event)?,
@@ -106,7 +107,7 @@ pub trait Component {
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
     #[allow(unused_variables)]
-    fn handle_key_events(&mut self, key: KeyEvent) -> Result<Option<Action>> {
+    fn handle_key_events(&mut self, key: &KeyEvent) -> Result<Option<Action>> {
         Ok(None)
     }
     /// Handle mouse events and produce actions if necessary.
@@ -119,7 +120,7 @@ pub trait Component {
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
     #[allow(unused_variables)]
-    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<Option<Action>> {
+    fn handle_mouse_events(&mut self, mouse: &MouseEvent) -> Result<Option<Action>> {
         Ok(None)
     }
     /// Update the state of the component based on a received action. (REQUIRED)
@@ -261,6 +262,33 @@ impl LinkedComponent {
                 .expect("TODO: panic message");
             current = node.next.clone();
         }
+    }
+
+    pub fn handle_events(&self, option: Option<&Event>) -> Result<Option<Action>> {
+        let mut current: Option<Rc<RefCell<NodeComponent>>> = self.head.clone();
+        while let Some(node) = current {
+            let node: Ref<NodeComponent> = node.borrow();
+            let mut component = node.value.borrow_mut();
+            let action = component.handle_events(option)?;
+            current = node.next.clone();
+            if current.is_none() && action.is_some() {
+                return Ok(action);
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn get_component_by_idx(&self, usr_idx: usize) -> Option<Rc<RefCell<dyn Component>>> {
+        let mut current: Option<Rc<RefCell<NodeComponent>>> = self.head.clone();
+        let mut idx: usize = 0;
+        while let Some(node) = current {
+            let node: Ref<NodeComponent> = node.borrow();
+            if idx == usr_idx {
+                return Some(node.value.clone());
+            }
+            current = node.next.clone();
+        }
+        None
     }
 
     pub fn iter(&self) -> IterComponent {

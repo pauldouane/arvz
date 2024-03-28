@@ -13,6 +13,7 @@ pub enum Mode {
     Log,
     Code,
     Command,
+    Pool
 }
 
 pub type RefreshLayoutFnType = Option<RefCell<Box<dyn FnMut(Mode)>>>;
@@ -31,7 +32,7 @@ impl Default for ObservableMode {
 impl ObservableMode {
     pub fn new() -> Self {
         ObservableMode {
-            mode: Mode::DagRun,
+            mode: Mode::Pool,
             refresh_layout_fn: None,
         }
     }
@@ -51,6 +52,16 @@ impl ObservableMode {
         self.mode = mode;
         if let Some(refresh_fn) = &self.refresh_layout_fn {
             (refresh_fn.borrow_mut())(mode);
+        }
+    }
+
+    pub fn get_model_by_mode(&self, mode: Mode) -> String {
+        match mode {
+            Mode::DagRun => "DagRun".to_string(),
+            Mode::Task => "Task".to_string(),
+            Mode::Log => "Log".to_string(),
+            Mode::Code => "Code".to_string(),
+            _ => { panic!() }
         }
     }
 }

@@ -21,7 +21,7 @@ use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
 use crate::components::table_dag_runs::TableDagRuns;
-use crate::components::{LinkedComponent};
+use crate::components::LinkedComponent;
 use crate::main_layout::MainLayout;
 use crate::mode::Mode::Search;
 use crate::models::dag_run::DagRun;
@@ -33,6 +33,7 @@ use crate::{
     mode::Mode,
     tui,
 };
+use crate::components::table::main::MainTable;
 
 pub struct App {
     pub config: Config,
@@ -87,7 +88,7 @@ impl App {
             Some(Mode::Search),
         );
         linked_components.append(
-            Rc::new(RefCell::new(TableDagRuns::new())),
+            Rc::new(RefCell::new(MainTable::new())),
             Chunk::Table,
             None,
         );
@@ -173,7 +174,6 @@ impl App {
                     )
                     .await?;
                 self.last_dag_runs_call = Instant::now();
-                self.table_dag_runs.set_dag_runs(self.dag_runs.clone());
             }
 
             // If the task mode is selected, then fetch the tasks for the selected dag_run
@@ -224,32 +224,18 @@ impl App {
                             }
                         };
                     }
+                    tui::Event::Refresh => {
+                        log::info!("Got refresh event");
+                    }
                     _ => {}
                 }
-                if let Some(action) = self.context_information.handle_events(Some(e.clone()))? {
-                    action_tx.send(action)?;
-                }
-                if let Some(action) = self.shortcut.handle_events(Some(e.clone()))? {
-                    action_tx.send(action)?;
-                }
-                if let Some(action) = self.ascii.handle_events(Some(e.clone()))? {
-                    action_tx.send(action)?;
-                }
-                if let Some(action) = self.command_search.handle_events(Some(e.clone()))? {
-                    action_tx.send(action)?;
-                }
-                if let Some(action) = self.command.handle_events(Some(e.clone()))? {
-                    action_tx.send(action)?;
-                }
-                if let Some(action) = self.table_dag_runs.handle_events(Some(e.clone()))? {
-                    action_tx.send(action)?;
+                match self.linked_components.handle_events(Some(&e))? {
+                    Some(action) => action_tx.send(action)?,
+                    None => {}
                 }
             }
 
             while let Ok(action) = action_rx.try_recv() {
-                if action != Action::Tick && action != Action::Render {
-                    log::debug!("{action:?}");
-                }
                 match action {
                     Action::Tick => {
                         self.last_tick_key_events.drain(..);
@@ -258,35 +244,20 @@ impl App {
                     Action::Suspend => self.should_suspend = true,
                     Action::Resume => self.should_suspend = false,
                     Action::Resize(w, h) => {
-                        tui.resize(Rect::new(0, 0, w, h))?;
+                        self.main_layout
+                            .borrow_mut()
+                            .set_tui_size(Rc::new(RefCell::new(tui.size().unwrap())));
+                        self.main_layout
+                            .borrow_mut()
+                            .set_main_layout(&self.observable_mode.get());
                         tui.draw(|f| {
-                            let r = self.context_information.draw(f, f.size());
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
-
-                            let r = self.shortcut.draw(f, f.size());
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
-
-                            let r = self.ascii.draw(f, f.size());
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
-
-                            let r = self.table_dag_runs.draw(f, f.size());
-                            if let Err(e) = r {
-                                action_tx
-                                    .send(Action::Error(format!("Failed to draw: {:?}", e)))
-                                    .unwrap();
-                            }
+                            self.linked_components
+                                .draw_components(
+                                    f,
+                                    |chunk| self.main_layout.borrow().get_chunk(chunk),
+                                    self.observable_mode.get(),
+                                )
+                                .expect("Failed to draw components");
                         })?;
                     }
                     Action::Render => {
@@ -459,13 +430,14 @@ impl App {
                     Action::ClearSearch => {
                         self.table_dag_runs.user_search = None;
                     }
+                    Action::Pool => {
+                        self.observable_mode.set_mode(Mode::Pool);
+                    }
                     _ => {}
                 }
                 if let Some(action) = self.context_information.update(action.clone())? {
                     action_tx.send(action)?
                 };
-                self.context_information
-                    .register_context_information(&self.dag_runs);
 
                 if let Some(action) = self.shortcut.update(action.clone())? {
                     action_tx.send(action)?

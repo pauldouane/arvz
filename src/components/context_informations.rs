@@ -39,15 +39,6 @@ impl ContextInformation {
             total_dag_runs_queued: 0,
         }
     }
-
-    pub fn register_context_information(&mut self, dag_runs: &DagRuns) {
-        self.total_dag_runs = dag_runs.get_total_entries();
-        self.total_dag_runs_running = dag_runs.get_count_dag_run_running();
-        self.total_dag_runs_failed = dag_runs.get_count_dag_run_failed();
-        self.total_dag_runs_scheduled = dag_runs.get_count_dag_run_scheduled();
-        self.total_dag_runs_success = dag_runs.get_count_dag_run_success();
-        self.total_dag_runs_queued = dag_runs.get_count_dag_run_queued();
-    }
 }
 
 impl Component for ContextInformation {

@@ -17,6 +17,7 @@ pub enum Action {
     Refresh,
     Error(String),
     Help,
+    Pool,
     DagRun,
     Code,
     Clear,

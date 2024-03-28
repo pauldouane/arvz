@@ -30,7 +30,7 @@ impl Shortcut {
         Self {
             command_tx: None,
             config: Config::default(),
-            mode: Mode::DagRun,
+            mode: Mode::Pool,
         }
     }
 

@@ -42,6 +42,7 @@ pub enum Event {
     Key(KeyEvent),
     Mouse(MouseEvent),
     Resize(u16, u16),
+    Refresh,
 }
 
 pub struct Tui {
@@ -110,6 +111,7 @@ impl Tui {
             let mut reader = crossterm::event::EventStream::new();
             let mut tick_interval = tokio::time::interval(tick_delay);
             let mut render_interval = tokio::time::interval(render_delay);
+            let mut refresh_interval = tokio::time::interval(Duration::from_secs(5));
             _event_tx.send(Event::Init).unwrap();
             loop {
                 let tick_delay = tick_interval.tick();
@@ -156,6 +158,9 @@ impl Tui {
                   },
                   _ = render_delay => {
                       _event_tx.send(Event::Render).unwrap();
+                  },
+                  _ = refresh_interval.tick() => {
+                      _event_tx.send(Event::Refresh).unwrap();
                   },
                 }
             }
