@@ -22,8 +22,8 @@ pub mod context_informations;
 pub mod fps;
 pub mod shortcut;
 pub mod status_bar;
-pub mod table_dag_runs;
 pub mod table;
+pub mod table_dag_runs;
 
 /// `Component` is a trait that represents a visual and interactive element of the user interface.
 /// Implementors of this trait can be registered with the main application loop and will be able to receive events,

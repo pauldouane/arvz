@@ -1,8 +1,10 @@
+use ratatui::prelude::Style;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub trait Table {
     fn get_columns(&self) -> Vec<&'static str>;
+    fn get_border_style(&self) -> Style;
 }
 
 pub type TableNodeComponentRef = Option<Rc<RefCell<TableNodeComponent>>>;
@@ -14,9 +16,7 @@ pub struct TableNodeComponent {
 }
 
 impl TableNodeComponent {
-    pub fn new(
-        component: Rc<RefCell<dyn Table>>,
-    ) -> Rc<RefCell<Self>> {
+    pub fn new(component: Rc<RefCell<dyn Table>>) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(TableNodeComponent {
             value: component,
             next: None,

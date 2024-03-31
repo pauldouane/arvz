@@ -38,7 +38,7 @@ impl DagRuns {
             .basic_auth(username, Some(password))
             .send()
             .await?
-            .json::<DagRuns>()
+            .json()
             .await?;
 
         self.dag_runs = dag_runs.dag_runs;

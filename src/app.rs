@@ -20,12 +20,15 @@ use crate::components::command_search::CommandSearch;
 use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
+use crate::components::table::main::MainTable;
 use crate::components::table_dag_runs::TableDagRuns;
 use crate::components::LinkedComponent;
+use crate::context_data::ContextData;
 use crate::main_layout::MainLayout;
 use crate::mode::Mode::Search;
 use crate::models::dag_run::DagRun;
 use crate::models::dag_runs::DagRuns;
+use crate::models::pool::PoolCollection;
 use crate::{
     action::Action,
     components::{fps::FpsCounter, Component},
@@ -33,7 +36,6 @@ use crate::{
     mode::Mode,
     tui,
 };
-use crate::components::table::main::MainTable;
 
 pub struct App {
     pub config: Config,
@@ -46,6 +48,7 @@ pub struct App {
     pub last_tick_key_events: Vec<KeyEvent>,
     pub last_dag_runs_call: Instant,
     pub last_task_call: Option<Instant>,
+    pub context_data: Rc<RefCell<ContextData>>,
     pub dag_runs: DagRuns,
     client: Client,
     context_information: ContextInformation,
@@ -87,11 +90,7 @@ impl App {
             Chunk::CommandChunk,
             Some(Mode::Search),
         );
-        linked_components.append(
-            Rc::new(RefCell::new(MainTable::new())),
-            Chunk::Table,
-            None,
-        );
+        linked_components.append(Rc::new(RefCell::new(MainTable::new())), Chunk::Table, None);
         linked_components.append(Rc::new(RefCell::new(StatusBar::new())), Chunk::Status, None);
         Ok(Self {
             tick_rate,
@@ -104,6 +103,7 @@ impl App {
             last_tick_key_events: Vec::new(),
             last_dag_runs_call: Instant::now(),
             last_task_call: None,
+            context_data: Rc::new(RefCell::new(ContextData::new())),
             dag_runs: DagRuns::new(),
             client,
             context_information: ContextInformation::new(),
@@ -162,6 +162,10 @@ impl App {
         // Register action handlers for components
         self.linked_components
             .register_action_components(&action_tx);
+
+        self.context_data
+            .borrow_mut()
+            .handle_airflow_config(self.config.airflow.clone());
 
         loop {
             if self.last_dag_runs_call.elapsed().as_secs() == 3 {
@@ -224,9 +228,10 @@ impl App {
                             }
                         };
                     }
-                    tui::Event::Refresh => {
-                        log::info!("Got refresh event");
-                    }
+                    tui::Event::Refresh => match self.observable_mode.get() {
+                        Mode::Pool => self.context_data.borrow_mut().refresh(Mode::Pool).await,
+                        _ => {}
+                    },
                     _ => {}
                 }
                 match self.linked_components.handle_events(Some(&e))? {

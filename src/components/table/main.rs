@@ -1,7 +1,7 @@
-use std::{collections::HashMap, time::Duration, vec};
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::{collections::HashMap, time::Duration, vec};
 
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
@@ -14,13 +14,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing_subscriber::fmt::format;
 
-use crate::config::key_event_to_string;
-use crate::mode::Mode;
-use crate::{
-    action::Action,
-    config::{Config, KeyBindings},
-};
-use crate::components::{Component, LinkedComponent};
 use crate::components::ascii::Ascii;
 use crate::components::command::Command;
 use crate::components::command_search::CommandSearch;
@@ -29,7 +22,14 @@ use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
 use crate::components::table::pool::Pool;
 use crate::components::table::table::LinkedTable;
+use crate::components::{Component, LinkedComponent};
+use crate::config::key_event_to_string;
 use crate::main_layout::Chunk;
+use crate::mode::Mode;
+use crate::{
+    action::Action,
+    config::{Config, KeyBindings},
+};
 
 #[derive(Default)]
 pub struct MainTable {
@@ -42,9 +42,7 @@ pub struct MainTable {
 impl MainTable {
     pub fn new() -> Self {
         let mut linked_tables = LinkedTable::new();
-        linked_tables.append(
-            Rc::new(RefCell::new(Pool::new())),
-        );
+        linked_tables.append(Rc::new(RefCell::new(Pool::new())));
         Self {
             command_tx: None,
             config: Config::default(),
@@ -82,10 +80,7 @@ impl Component for MainTable {
         let mut title = vec![
             Span::styled(format!(" {:?}", self.mode), Style::new().light_cyan()),
             Span::styled("[", Style::new().white()),
-            Span::styled(
-                "0".to_string(),
-                Style::new().light_yellow(),
-            ),
+            Span::styled("0".to_string(), Style::new().light_yellow()),
             Span::styled("] ", Style::new().white()),
         ];
         let widths = columns
@@ -100,7 +95,7 @@ impl Component for MainTable {
                     .title(Line::from(title))
                     .title_alignment(Alignment::Center)
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::LightBlue)),
+                    .border_style(node.value.borrow().get_border_style()),
             )
             .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
