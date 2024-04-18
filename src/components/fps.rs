@@ -1,9 +1,11 @@
 use std::time::Instant;
+use tokio::sync::MutexGuard;
 
 use color_eyre::eyre::Result;
 use ratatui::{prelude::*, widgets::*};
 
 use super::Component;
+use crate::context_data::ContextData;
 use crate::{action::Action, tui::Frame};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,7 +63,11 @@ impl FpsCounter {
 }
 
 impl Component for FpsCounter {
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<Option<Action>> {
         if let Action::Tick = action {
             self.app_tick()?
         };
@@ -71,7 +77,12 @@ impl Component for FpsCounter {
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()> {
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        rect: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<()> {
         Ok(())
     }
 }

@@ -28,7 +28,7 @@ pub fn io() -> IO {
 }
 pub type Frame<'a> = ratatui::Frame<'a>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
     Init,
     Quit,
@@ -55,6 +55,7 @@ pub struct Tui {
     pub tick_rate: f64,
     pub mouse: bool,
     pub paste: bool,
+    pub current_event: Option<Event>,
 }
 
 impl Tui {
@@ -77,6 +78,7 @@ impl Tui {
             tick_rate,
             mouse,
             paste,
+            current_event: None,
         })
     }
 
@@ -230,7 +232,9 @@ impl Tui {
     }
 
     pub async fn next(&mut self) -> Option<Event> {
-        self.event_rx.recv().await
+        let event = self.event_rx.recv().await;
+        self.current_event = event.clone();
+        event
     }
 
     pub fn get_main_constraint(&self, mode: Mode) -> [Constraint; 4] {

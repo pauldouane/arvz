@@ -11,6 +11,7 @@ use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::prelude::Rect;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -48,7 +49,7 @@ pub struct App {
     pub last_tick_key_events: Vec<KeyEvent>,
     pub last_dag_runs_call: Instant,
     pub last_task_call: Option<Instant>,
-    pub context_data: Rc<RefCell<ContextData>>,
+    pub context_data: Arc<tokio::sync::Mutex<ContextData>>,
     pub dag_runs: DagRuns,
     client: Client,
     context_information: ContextInformation,
@@ -103,7 +104,7 @@ impl App {
             last_tick_key_events: Vec::new(),
             last_dag_runs_call: Instant::now(),
             last_task_call: None,
-            context_data: Rc::new(RefCell::new(ContextData::new())),
+            context_data: Arc::new(tokio::sync::Mutex::new(ContextData::new())),
             dag_runs: DagRuns::new(),
             client,
             context_information: ContextInformation::new(),
@@ -163,45 +164,15 @@ impl App {
         self.linked_components
             .register_action_components(&action_tx);
 
-        self.context_data
-            .borrow_mut()
-            .handle_airflow_config(self.config.airflow.clone());
+        // Register airflow config for context_data
+        let context_data_ref = Arc::clone(&self.context_data);
+        let airflow_config = self.config.airflow.clone();
+        tokio::spawn(async move {
+            let mut lock = context_data_ref.lock().await;
+            lock.handle_airflow_config(airflow_config);
+        });
 
         loop {
-            if self.last_dag_runs_call.elapsed().as_secs() == 3 {
-                self.dag_runs
-                    .set_dag_runs(
-                        &self.client,
-                        &self.config.airflow.username,
-                        &self.config.airflow.password,
-                        &self.config.airflow.host,
-                    )
-                    .await?;
-                self.last_dag_runs_call = Instant::now();
-            }
-
-            // If the task mode is selected, then fetch the tasks for the selected dag_run
-            if self.observable_mode.get() == Mode::Task {
-                if let Some(last_task_call) = self.last_task_call {
-                    if last_task_call.elapsed().as_secs() >= 2 {
-                        self.table_dag_runs.tasks = Some(
-                            self.dag_runs
-                                .get_task(
-                                    &self.client,
-                                    &self.config.airflow,
-                                    &self.config.airflow.username,
-                                    &self.config.airflow.password,
-                                    &self.config.airflow.host,
-                                    self.table_dag_runs.table_state.selected().unwrap_or(0),
-                                )
-                                .await?,
-                        );
-                        self.last_task_call = Some(Instant::now());
-                    }
-                } else {
-                    self.last_task_call = Some(Instant::now());
-                }
-            }
             if let Some(e) = tui.next().await {
                 match e {
                     tui::Event::Quit => action_tx.send(Action::Quit)?,
@@ -228,13 +199,20 @@ impl App {
                             }
                         };
                     }
-                    tui::Event::Refresh => match self.observable_mode.get() {
-                        Mode::Pool => self.context_data.borrow_mut().refresh(Mode::Pool).await,
-                        _ => {}
-                    },
+                    tui::Event::Refresh => {
+                        let context_data_ref = Arc::clone(&self.context_data);
+                        let airflow_config = self.config.airflow.clone();
+                        let mode = self.observable_mode.get().clone();
+                        tokio::spawn(async move {
+                            let mut lock = context_data_ref.lock().await;
+                            lock.refresh(mode).await;
+                        });
+                    }
                     _ => {}
                 }
-                match self.linked_components.handle_events(Some(&e))? {
+                let context_data_ref = Arc::clone(&self.context_data);
+                let mut lock = context_data_ref.lock().await;
+                match self.linked_components.handle_events(Some(&e), &lock, self.observable_mode.get())? {
                     Some(action) => action_tx.send(action)?,
                     None => {}
                 }
@@ -255,220 +233,42 @@ impl App {
                         self.main_layout
                             .borrow_mut()
                             .set_main_layout(&self.observable_mode.get());
+                        let context_data_ref = Arc::clone(&self.context_data);
+                        let context_data_lock = context_data_ref.lock().await;
                         tui.draw(|f| {
                             self.linked_components
                                 .draw_components(
                                     f,
                                     |chunk| self.main_layout.borrow().get_chunk(chunk),
                                     self.observable_mode.get(),
+                                    &context_data_lock,
                                 )
                                 .expect("Failed to draw components");
                         })?;
                     }
                     Action::Render => {
+                        let context_data_ref = Arc::clone(&self.context_data);
+                        let context_data_lock = context_data_ref.lock().await;
                         tui.draw(|f| {
                             self.linked_components
                                 .draw_components(
                                     f,
                                     |chunk| self.main_layout.borrow().get_chunk(chunk),
                                     self.observable_mode.get(),
+                                    &context_data_lock,
                                 )
                                 .expect("Failed to draw components");
                         })?;
-                    }
-                    Action::Search => {
-                        self.status_bar.mode_breadcrumb.push(Mode::DagRun);
-                        self.observable_mode.set_mode(Mode::Search);
-                        self.status_bar.register_mode(self.observable_mode.get());
-                        self.observable_mode.set_mode(Mode::Search);
-                    }
-                    Action::Command => {
-                        self.status_bar.mode_breadcrumb.push(Mode::DagRun);
-                        self.observable_mode.set_mode(Mode::Command);
-                        self.status_bar.register_mode(self.observable_mode.get());
-                        self.observable_mode.set_mode(Mode::Command);
-                    }
-                    Action::DagRun => {
-                        self.status_bar.mode_breadcrumb.clear();
-                        self.command.command = None;
-                        self.observable_mode.set_mode(Mode::DagRun);
-                        self.status_bar.register_mode(self.observable_mode.get());
-                        self.table_dag_runs.position = None;
-                        self.observable_mode.set_mode(Mode::DagRun);
-                    }
-                    Action::Code => {
-                        self.observable_mode.set_mode(Mode::Code);
-                        self.status_bar.mode_breadcrumb.push(Mode::DagRun);
-                        self.status_bar.register_mode(self.observable_mode.get());
-                        self.table_dag_runs
-                            .handle_mode(self.observable_mode.get())?;
-                        let source_code = self.table_dag_runs.dag_runs.dag_runs
-                            [self.table_dag_runs.table_state.selected().unwrap()]
-                        .get_source_code(&self.client, &self.config.airflow)
-                        .await?;
-                        self.table_dag_runs.code = source_code.clone();
-                        self.observable_mode.set_mode(Mode::Code);
-                    }
-                    Action::Clear => {
-                        if self.observable_mode.get() == Mode::DagRun
-                            && self.table_dag_runs.table_state.selected().is_some()
-                        {
-                            self.dag_runs.dag_runs
-                                [self.table_dag_runs.table_state.selected().unwrap()]
-                            .clear(
-                                &self.client,
-                                &self.config.airflow,
-                                &self.config.airflow.username,
-                                &self.config.airflow.password,
-                                &self.config.airflow.host,
-                            )
-                            .await?;
-                        }
-
-                        if self.observable_mode.get() == Mode::Task
-                            && self.table_dag_runs.table_state.selected().is_some()
-                        {
-                            self.table_dag_runs.tasks.as_mut().unwrap().task_instances
-                                [self.table_dag_runs.table_tasks_state.selected().unwrap()]
-                            .clear(
-                                &self.client,
-                                &self.config.airflow,
-                                &self.config.airflow.username,
-                                &self.config.airflow.password,
-                                &self.config.airflow.host,
-                            )
-                            .await?;
-                        }
-                    }
-                    Action::Task => {
-                        self.status_bar.mode_breadcrumb.clear();
-                        self.status_bar.mode_breadcrumb.push(Mode::DagRun);
-                        if self.table_dag_runs.table_state.selected().is_none() {
-                            self.observable_mode.set_mode(Mode::DagRun);
-                            self.observable_mode.set_mode(Mode::DagRun);
-                            break;
-                        }
-                        self.observable_mode.set_mode(Mode::Task);
-                        self.table_dag_runs.table_tasks_state.select(Some(0));
-                        self.table_dag_runs.tasks = Some(
-                            self.dag_runs
-                                .get_task(
-                                    &self.client,
-                                    &self.config.airflow,
-                                    &self.config.airflow.username,
-                                    &self.config.airflow.password,
-                                    &self.config.airflow.host,
-                                    self.table_dag_runs.table_state.selected().unwrap_or(0),
-                                )
-                                .await?,
-                        );
-                        self.status_bar.register_mode(self.observable_mode.get());
-                    }
-                    Action::Log => {
-                        self.status_bar.mode_breadcrumb.clear();
-                        self.status_bar.mode_breadcrumb.push(Mode::DagRun);
-                        self.status_bar.mode_breadcrumb.push(Mode::Task);
-                        self.observable_mode.set_mode(Mode::Log);
-                        self.table_dag_runs
-                            .handle_mode(self.observable_mode.get())?;
-                        self.status_bar.register_mode(self.observable_mode.get());
-                        if self.table_dag_runs.table_state.selected().is_some() {
-                            let log = self.table_dag_runs.tasks.as_mut().unwrap().task_instances
-                                [self.table_dag_runs.table_tasks_state.selected().unwrap()]
-                            .get_logs(
-                                &self.client,
-                                &self.config.airflow,
-                                &self.config.airflow.username,
-                                &self.config.airflow.password,
-                                &self.config.airflow.host,
-                                self.table_dag_runs.try_number,
-                            )
-                            .await?;
-                            self.table_dag_runs.log = log;
-                        };
-                    }
-                    Action::NextTryNumber => {
-                        if self.table_dag_runs.table_tasks_state.selected().is_some()
-                            && self.observable_mode.get() == Mode::Log
-                            && self.table_dag_runs.tasks.as_ref().unwrap().task_instances
-                                [self.table_dag_runs.table_tasks_state.selected().unwrap()]
-                            .try_number as usize
-                                > self.table_dag_runs.try_number
-                        {
-                            self.table_dag_runs.try_number += 1;
-                            log::info!("{}", format!("{}", self.table_dag_runs.try_number));
-                            let log = self.table_dag_runs.tasks.as_mut().unwrap().task_instances
-                                [self.table_dag_runs.table_tasks_state.selected().unwrap()]
-                            .get_logs(
-                                &self.client,
-                                &self.config.airflow,
-                                &self.config.airflow.username,
-                                &self.config.airflow.password,
-                                &self.config.airflow.host,
-                                self.table_dag_runs.try_number,
-                            )
-                            .await?;
-                            self.table_dag_runs.log = log;
-                        }
-                    }
-                    Action::PreviousTryNumber => {
-                        if self.table_dag_runs.table_tasks_state.selected().is_some()
-                            && self.observable_mode.get() == Mode::Log
-                            && self.table_dag_runs.try_number > 1
-                        {
-                            self.table_dag_runs.try_number -= 1;
-                            log::info!("{}", format!("{}", self.table_dag_runs.try_number));
-                            let log = self.table_dag_runs.tasks.as_mut().unwrap().task_instances
-                                [self.table_dag_runs.table_tasks_state.selected().unwrap()]
-                            .get_logs(
-                                &self.client,
-                                &self.config.airflow,
-                                &self.config.airflow.username,
-                                &self.config.airflow.password,
-                                &self.config.airflow.host,
-                                self.table_dag_runs.try_number,
-                            )
-                            .await?;
-                            self.table_dag_runs.log = log;
-                        }
-                    }
-                    Action::ClearSearch => {
-                        self.table_dag_runs.user_search = None;
                     }
                     Action::Pool => {
                         self.observable_mode.set_mode(Mode::Pool);
                     }
                     _ => {}
                 }
-                if let Some(action) = self.context_information.update(action.clone())? {
-                    action_tx.send(action)?
-                };
 
-                if let Some(action) = self.shortcut.update(action.clone())? {
-                    action_tx.send(action)?
-                };
-                self.shortcut.register_mode(self.observable_mode.get());
-
-                if let Some(action) = self.ascii.update(action.clone())? {
-                    action_tx.send(action)?
-                };
-
-                if let Some(action) = self.command_search.update(action.clone())? {
-                    action_tx.send(action)?
-                };
-                self.command_search
-                    .handle_mode(self.observable_mode.get())?;
-
-                if let Some(action) = self.command.update(action.clone())? {
-                    action_tx.send(action)?
-                };
-                self.command.handle_mode(self.observable_mode.get())?;
-
-                if let Some(action) = self.table_dag_runs.update(action.clone())? {
-                    action_tx.send(action)?
-                };
-                self.table_dag_runs
-                    .handle_mode(self.observable_mode.get())?;
+                let context_data_ref = Arc::clone(&self.context_data);
+                let mut lock = context_data_ref.lock().await;
+                self.linked_components.handle_actions(action.clone(), &lock);
             }
             if self.should_suspend {
                 tui.suspend()?;

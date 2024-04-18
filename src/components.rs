@@ -7,6 +7,7 @@ use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::layout::Rect;
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::context_data::ContextData;
 use crate::main_layout::{Chunk, MainLayout};
 use crate::mode::Mode;
 use crate::{
@@ -14,6 +15,9 @@ use crate::{
     config::Config,
     tui::{Event, Frame},
 };
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
 
 pub mod ascii;
 pub mod command;
@@ -76,7 +80,7 @@ pub trait Component {
     /// # Returns
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
-    fn handle_events(&mut self, event: Option<&Event>) -> Result<Option<Action>> {
+    fn handle_events(&mut self, event: Option<&Event>, context_data: &MutexGuard<'_, ContextData>, mode: Mode) -> Result<Option<Action>> {
         let r = match event {
             Some(Event::Key(key_event)) => self.handle_key_events(key_event)?,
             Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event)?,
@@ -133,7 +137,11 @@ pub trait Component {
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
     #[allow(unused_variables)]
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<Option<Action>> {
         Ok(None)
     }
     /// Render the component on the screen. (REQUIRED)
@@ -146,7 +154,12 @@ pub trait Component {
     /// # Returns
     ///
     /// * `Result<()>` - An Ok result or an error.
-    fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()>;
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        area: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<()>;
 }
 
 impl Debug for dyn Component {
@@ -218,7 +231,13 @@ impl LinkedComponent {
         }
     }
 
-    pub fn draw_components<F>(&mut self, f: &mut Frame<'_>, get_chunk: F, mode: Mode) -> Result<()>
+    pub fn draw_components<F>(
+        &mut self,
+        f: &mut Frame<'_>,
+        get_chunk: F,
+        mode: Mode,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<()>
     where
         F: Fn(&Chunk) -> Rect,
     {
@@ -234,7 +253,7 @@ impl LinkedComponent {
                     continue;
                 }
             }
-            node.value.borrow_mut().draw(f, area)?;
+            node.value.borrow_mut().draw(f, area, context_data)?;
             current = node.next.clone();
         }
         Ok(())
@@ -264,15 +283,33 @@ impl LinkedComponent {
         }
     }
 
-    pub fn handle_events(&self, option: Option<&Event>) -> Result<Option<Action>> {
+    pub fn handle_events(&self, option: Option<&Event>, context_data: &MutexGuard<'_, ContextData>, mode: Mode) -> Result<Option<Action>> {
         let mut current: Option<Rc<RefCell<NodeComponent>>> = self.head.clone();
         while let Some(node) = current {
             let node: Ref<NodeComponent> = node.borrow();
             let mut component = node.value.borrow_mut();
-            let action = component.handle_events(option)?;
+            let action = component.handle_events(option, context_data, mode)?;
             current = node.next.clone();
             if current.is_none() && action.is_some() {
                 return Ok(action);
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn handle_actions(
+        &self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<Option<Action>> {
+        let mut current: Option<Rc<RefCell<NodeComponent>>> = self.head.clone();
+        while let Some(node) = current {
+            let node: Ref<NodeComponent> = node.borrow();
+            let mut component = node.value.borrow_mut();
+            component.update(action.clone(), context_data);
+            current = node.next.clone();
+            if current.is_none() {
+                return Ok(Some(action));
             }
         }
         Ok(None)

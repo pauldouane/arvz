@@ -58,4 +58,13 @@ impl LinkedTable {
             }
         }
     }
+
+
+    pub fn next(&self) {
+        let mut current: Option<Rc<RefCell<TableNodeComponent>>> = self.head.clone();
+        if let Some(node) = current {
+            let next = node.borrow().next.unwrap();
+            self.head = Some(next);
+        }
+    }
 }

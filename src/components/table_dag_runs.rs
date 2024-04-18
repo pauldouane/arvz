@@ -1,5 +1,6 @@
 use std::usize;
 use std::{collections::HashMap, time::Duration};
+use tokio::sync::MutexGuard;
 
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
@@ -13,6 +14,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing_subscriber::fmt::format;
 
 use super::{Component, Frame};
+use crate::context_data::ContextData;
 use crate::mode::Mode;
 use crate::models::dag_run::DagRun;
 use crate::models::dag_runs::DagRuns;
@@ -103,7 +105,11 @@ impl Component for TableDagRuns {
         Ok(None)
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<Option<Action>> {
         let table_state = if self.mode == Mode::Task {
             &mut self.table_tasks_state
         } else {
@@ -173,7 +179,12 @@ impl Component for TableDagRuns {
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        area: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<()> {
         let rows: Vec<Row> = if self.mode == Mode::Task {
             if let Some(tasks) = &self.tasks {
                 tasks.get_tasks_row()

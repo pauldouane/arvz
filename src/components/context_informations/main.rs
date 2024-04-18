@@ -54,11 +54,7 @@ impl Component for ContextInformation {
         Ok(())
     }
 
-    fn update(
-        &mut self,
-        action: Action,
-        context_data: &MutexGuard<'_, ContextData>,
-    ) -> Result<Option<Action>> {
+    fn update(&mut self, action: Action, context_data: &MutexGuard<'_, ContextData>) -> Result<Option<Action>> {
         {}
         Ok(None)
     }
@@ -69,6 +65,7 @@ impl Component for ContextInformation {
         area: Rect,
         context_data: &MutexGuard<'_, ContextData>,
     ) -> Result<()> {
+        log::info!("Draw ContextInformation");
         // Align the value on the right to the same starting point
         let text = vec![
             Line::from(vec![

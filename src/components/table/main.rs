@@ -1,8 +1,11 @@
 use std::cell::RefCell;
+use crate::tui::Event::Key;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::{collections::HashMap, time::Duration, vec};
-
+use tokio::sync::MutexGuard;
+use crate::tui::Event;
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -24,12 +27,14 @@ use crate::components::table::pool::Pool;
 use crate::components::table::table::LinkedTable;
 use crate::components::{Component, LinkedComponent};
 use crate::config::key_event_to_string;
+use crate::context_data::ContextData;
 use crate::main_layout::Chunk;
 use crate::mode::Mode;
 use crate::{
     action::Action,
     config::{Config, KeyBindings},
 };
+use tokio::sync::Mutex;
 
 #[derive(Default)]
 pub struct MainTable {
@@ -37,6 +42,7 @@ pub struct MainTable {
     config: Config,
     mode: Mode,
     tables: LinkedTable,
+    state: TableState,
 }
 
 impl MainTable {
@@ -48,6 +54,7 @@ impl MainTable {
             config: Config::default(),
             mode: Mode::Pool,
             tables: linked_tables,
+            state: TableState::new(),
         }
     }
 
@@ -67,27 +74,78 @@ impl Component for MainTable {
         Ok(())
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
-        {}
-        Ok(None)
+    fn handle_events(&mut self, event: Option<&Event>, context_data: &MutexGuard<'_, ContextData>, mode: Mode) -> Result<Option<Action>> {
+        match event {
+            Some(event) => {
+                match event {
+                    Key(key_event) => {
+                        match key_event.code {
+                            KeyCode::Down => {
+                                if let Some(selected) = self.state.selected() {
+                                    match &context_data.get_model_by_mode(mode).unwrap() {
+                                        Some(data) => {
+                                            if ((selected + 1) as i32) < data.get_total_entries() {
+                                                self.state.select(Some(selected + 1))
+                                            }
+                                        }
+                                        None => log::info!("No pool collection"),
+                                    };
+                                } else {
+                                    self.state.select(Some(0))
+                                }
+                            },
+                            KeyCode::Up => {
+                                if let Some(selected) = self.state.selected() { 
+                                    if selected > 0 { 
+                                        self.state.select(Some(selected - 1)); 
+                                    } 
+                                } else { 
+                                    self.state.select(Some(0)) 
+                                }
+                            },
+                            KeyCode::Enter => {
+                                self.tables.next();    
+                            }
+                            _ => {
+                                log::info!("Key not implemented");
+                            }
+                        }
+                        Ok(None)
+                    },
+                    _ => Ok(None)
+                }
+            },
+            None => Ok(None)
+        }
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        area: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<()> {
         let current_table = self.tables.head.clone().unwrap();
         let node = current_table.borrow();
         let columns = node.value.borrow().get_columns();
-        let rows: Vec<Row> = vec![];
+        let total_entries = match &context_data.pool_collection {
+            Some(pool_collection) => pool_collection.get_total_entries(),
+            None => 0,
+        };
+        let rows = match &context_data.pool_collection {
+            Some(pool_collection) => pool_collection.get_rows(),
+            None => vec![],
+        };
         let mut title = vec![
             Span::styled(format!(" {:?}", self.mode), Style::new().light_cyan()),
             Span::styled("[", Style::new().white()),
-            Span::styled("0".to_string(), Style::new().light_yellow()),
+            Span::styled(total_entries.to_string(), Style::new().light_yellow()),
             Span::styled("] ", Style::new().white()),
         ];
         let widths = columns
             .iter()
             .map(|_| Constraint::Percentage(100 / columns.len() as u16))
             .collect::<Vec<_>>();
-
         let table = Table::new(rows, widths)
             .header(Row::new(columns.to_vec()).bottom_margin(0))
             .block(
@@ -99,7 +157,7 @@ impl Component for MainTable {
             )
             .highlight_style(Style::new().add_modifier(Modifier::REVERSED));
 
-        f.render_widget(table, area);
+        f.render_stateful_widget(table, area, &mut self.state);
         Ok(())
     }
 }

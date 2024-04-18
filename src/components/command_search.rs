@@ -1,4 +1,5 @@
 use std::{collections::HashMap, time::Duration, vec};
+use tokio::sync::MutexGuard;
 
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
@@ -11,6 +12,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use super::{Component, Frame};
 use crate::config::key_event_to_string;
+use crate::context_data::ContextData;
 use crate::mode::Mode;
 use crate::utils::get_user_input_by_key;
 use crate::{
@@ -60,11 +62,20 @@ impl Component for CommandSearch {
         Ok(None)
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<Option<Action>> {
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        area: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+    ) -> Result<()> {
         // draw the search bar
         let line = Line::from(vec![if let Some(search) = &self.user_search {
             Span::raw(search)

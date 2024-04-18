@@ -65,7 +65,6 @@ impl MainLayout {
                 Layout::default()
                     .direction(Direction::Vertical)
                     .constraints(self.get_constraints(mode))
-                    .margin(1)
                     .split(*tui_size.borrow_mut()),
             );
         }
