@@ -1,3 +1,6 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
+use crate::mode::Mode;
 use std::{collections::HashMap, time::Duration};
 use tokio::sync::MutexGuard;
 
@@ -53,6 +56,7 @@ impl Component for Ascii {
         &mut self,
         action: Action,
         context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
     ) -> Result<Option<Action>> {
         {}
         Ok(None)
@@ -63,6 +67,8 @@ impl Component for Ascii {
         f: &mut Frame<'_>,
         area: Rect,
         context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
     ) -> Result<()> {
         let block = Paragraph::new(self.ascii)
             .block(Block::new())

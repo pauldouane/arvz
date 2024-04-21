@@ -1,7 +1,11 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::table::table::Tables;
+use crossterm::event::KeyCode::Char;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 
+use crate::components::table::pool::Pool;
 use crate::main_layout::{self, Chunk};
 use crate::mode::ObservableMode;
 use color_eyre::eyre::Result;
@@ -13,6 +17,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 use tokio::time::Instant;
 
 use crate::components::ascii::Ascii;
@@ -21,8 +26,8 @@ use crate::components::command_search::CommandSearch;
 use crate::components::context_informations::ContextInformation;
 use crate::components::shortcut::Shortcut;
 use crate::components::status_bar::StatusBar;
+use crate::components::table::dag_run::DagRun as TableDagRun;
 use crate::components::table::main::MainTable;
-use crate::components::table_dag_runs::TableDagRuns;
 use crate::components::LinkedComponent;
 use crate::context_data::ContextData;
 use crate::main_layout::MainLayout;
@@ -50,16 +55,9 @@ pub struct App {
     pub last_dag_runs_call: Instant,
     pub last_task_call: Option<Instant>,
     pub context_data: Arc<tokio::sync::Mutex<ContextData>>,
-    pub dag_runs: DagRuns,
     client: Client,
-    context_information: ContextInformation,
-    shortcut: Shortcut,
-    ascii: Ascii,
-    table_dag_runs: TableDagRuns,
-    status_bar: StatusBar,
-    command_search: CommandSearch,
-    command: Command,
     linked_components: LinkedComponent,
+    tables: Tables,
 }
 
 impl App {
@@ -75,11 +73,6 @@ impl App {
             Chunk::Context(0),
             None,
         );
-        linked_components.append(
-            Rc::new(RefCell::new(Shortcut::new())),
-            Chunk::Context(1),
-            None,
-        );
         linked_components.append(Rc::new(RefCell::new(Ascii::new())), Chunk::Context(2), None);
         linked_components.append(
             Rc::new(RefCell::new(Command::new())),
@@ -93,6 +86,9 @@ impl App {
         );
         linked_components.append(Rc::new(RefCell::new(MainTable::new())), Chunk::Table, None);
         linked_components.append(Rc::new(RefCell::new(StatusBar::new())), Chunk::Status, None);
+
+        let mut tables = Tables::new();
+
         Ok(Self {
             tick_rate,
             frame_rate,
@@ -105,41 +101,17 @@ impl App {
             last_dag_runs_call: Instant::now(),
             last_task_call: None,
             context_data: Arc::new(tokio::sync::Mutex::new(ContextData::new())),
-            dag_runs: DagRuns::new(),
             client,
-            context_information: ContextInformation::new(),
-            shortcut: Shortcut::new(),
-            ascii: Ascii::new(),
-            table_dag_runs: TableDagRuns::new(),
-            status_bar: StatusBar::new(),
-            command_search: CommandSearch::new(),
-            command: Command::new(),
             linked_components,
+            tables,
         })
     }
 
     pub async fn run(&mut self) -> Result<()> {
         let (action_tx, mut action_rx) = mpsc::unbounded_channel();
-        self.dag_runs
-            .set_dag_runs(
-                &self.client,
-                &self.config.airflow.username,
-                &self.config.airflow.password,
-                &self.config.airflow.host,
-            )
-            .await?;
-        self.last_dag_runs_call = Instant::now();
-        // Set the initial dag_runs state for the table widget
-        self.table_dag_runs.set_dag_runs(self.dag_runs.clone());
         let mut tui = tui::Tui::new()?;
         // tui.mouse(true);
         tui.enter()?;
-
-        // Init the area for all components
-        self.context_information.init(tui.size()?)?;
-        self.shortcut.init(tui.size()?)?;
-        self.ascii.init(tui.size()?)?;
-        self.table_dag_runs.init(tui.size()?)?;
 
         // Set tui_size for the main_layout
         self.main_layout
@@ -179,26 +151,10 @@ impl App {
                     tui::Event::Tick => action_tx.send(Action::Tick)?,
                     tui::Event::Render => action_tx.send(Action::Render)?,
                     tui::Event::Resize(x, y) => action_tx.send(Action::Resize(x, y))?,
-                    tui::Event::Key(key) => {
-                        if let Some(keymap) =
-                            self.config.keybindings.get(&self.observable_mode.get())
-                        {
-                            if let Some(action) = keymap.get(&vec![key]) {
-                                log::info!("Got action: {action:?}");
-                                action_tx.send(action.clone())?;
-                            } else {
-                                // If the key was not handled as a single key action,
-                                // then consider it for multi-key combinations.
-                                self.last_tick_key_events.push(key);
-
-                                // Check for multi-key combinations
-                                if let Some(action) = keymap.get(&self.last_tick_key_events) {
-                                    log::info!("Got action: {action:?}");
-                                    action_tx.send(action.clone())?;
-                                }
-                            }
-                        };
-                    }
+                    tui::Event::Key(key) => match key.code {
+                        Char('q') => self.should_quit = true,
+                        _ => {}
+                    },
                     tui::Event::Refresh => {
                         let context_data_ref = Arc::clone(&self.context_data);
                         let airflow_config = self.config.airflow.clone();
@@ -212,7 +168,12 @@ impl App {
                 }
                 let context_data_ref = Arc::clone(&self.context_data);
                 let mut lock = context_data_ref.lock().await;
-                match self.linked_components.handle_events(Some(&e), &lock, self.observable_mode.get())? {
+                match self.linked_components.handle_events(
+                    Some(&e),
+                    &mut lock,
+                    &self.observable_mode,
+                    &mut self.tables,
+                )? {
                     Some(action) => action_tx.send(action)?,
                     None => {}
                 }
@@ -227,14 +188,15 @@ impl App {
                     Action::Suspend => self.should_suspend = true,
                     Action::Resume => self.should_suspend = false,
                     Action::Resize(w, h) => {
-                        self.main_layout
-                            .borrow_mut()
-                            .set_tui_size(Rc::new(RefCell::new(tui.size().unwrap())));
-                        self.main_layout
-                            .borrow_mut()
-                            .set_main_layout(&self.observable_mode.get());
                         let context_data_ref = Arc::clone(&self.context_data);
                         let context_data_lock = context_data_ref.lock().await;
+                        let table_ref = Arc::clone(
+                            &self
+                                .tables
+                                .get_table_by_mode(self.observable_mode.get())
+                                .unwrap(),
+                        );
+                        let table = table_ref.lock().await;
                         tui.draw(|f| {
                             self.linked_components
                                 .draw_components(
@@ -242,6 +204,7 @@ impl App {
                                     |chunk| self.main_layout.borrow().get_chunk(chunk),
                                     self.observable_mode.get(),
                                     &context_data_lock,
+                                    &table,
                                 )
                                 .expect("Failed to draw components");
                         })?;
@@ -249,6 +212,13 @@ impl App {
                     Action::Render => {
                         let context_data_ref = Arc::clone(&self.context_data);
                         let context_data_lock = context_data_ref.lock().await;
+                        let table_ref = Arc::clone(
+                            &self
+                                .tables
+                                .get_table_by_mode(self.observable_mode.get())
+                                .unwrap(),
+                        );
+                        let table = table_ref.lock().await;
                         tui.draw(|f| {
                             self.linked_components
                                 .draw_components(
@@ -256,9 +226,26 @@ impl App {
                                     |chunk| self.main_layout.borrow().get_chunk(chunk),
                                     self.observable_mode.get(),
                                     &context_data_lock,
+                                    &table,
                                 )
                                 .expect("Failed to draw components");
                         })?;
+                    }
+                    Action::Mode(mode) => {
+                        self.observable_mode.set_mode(mode);
+                    }
+                    Action::NextMode(current_mode) => {
+                        self.observable_mode.set_next_mode(current_mode);
+                        let context_data_ref = Arc::clone(&self.context_data);
+                        let airflow_config = self.config.airflow.clone();
+                        let mode = self.observable_mode.get().clone();
+                        tokio::spawn(async move {
+                            let mut lock = context_data_ref.lock().await;
+                            lock.refresh(mode).await;
+                        });
+                    }
+                    Action::PreviousMode(mode) => {
+                        self.observable_mode.set_mode(mode);
                     }
                     Action::Pool => {
                         self.observable_mode.set_mode(Mode::Pool);
@@ -268,7 +255,6 @@ impl App {
 
                 let context_data_ref = Arc::clone(&self.context_data);
                 let mut lock = context_data_ref.lock().await;
-                self.linked_components.handle_actions(action.clone(), &lock);
             }
             if self.should_suspend {
                 tui.suspend()?;

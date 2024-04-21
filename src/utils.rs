@@ -13,7 +13,6 @@ use tracing_subscriber::{
 };
 
 use crate::components::status_bar::StatusBar;
-use crate::components::table_dag_runs::TableDagRuns;
 use crate::components::{context_informations::ContextInformation, shortcut::Shortcut, Component};
 
 const VERSION_MESSAGE: &str = concat!(

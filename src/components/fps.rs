@@ -1,3 +1,6 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
+use crate::mode::Mode;
 use std::time::Instant;
 use tokio::sync::MutexGuard;
 
@@ -67,6 +70,7 @@ impl Component for FpsCounter {
         &mut self,
         action: Action,
         context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
     ) -> Result<Option<Action>> {
         if let Action::Tick = action {
             self.app_tick()?
@@ -82,6 +86,8 @@ impl Component for FpsCounter {
         f: &mut Frame<'_>,
         rect: Rect,
         context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
     ) -> Result<()> {
         Ok(())
     }

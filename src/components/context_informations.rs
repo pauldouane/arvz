@@ -1,3 +1,6 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
+use crate::mode::Mode;
 use std::{collections::HashMap, time::Duration};
 use tokio::sync::MutexGuard;
 
@@ -58,6 +61,7 @@ impl Component for ContextInformation {
         &mut self,
         action: Action,
         context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
     ) -> Result<Option<Action>> {
         {}
         Ok(None)
@@ -68,6 +72,8 @@ impl Component for ContextInformation {
         f: &mut Frame<'_>,
         area: Rect,
         context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
     ) -> Result<()> {
         // Align the value on the right to the same starting point
         let text = vec![

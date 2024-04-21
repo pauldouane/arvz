@@ -1,3 +1,4 @@
+use crate::models::model_airflow::Data;
 use crate::models::model_airflow::ModelAirflow;
 use ratatui::widgets::Row;
 use reqwest::{Error, Response};
@@ -18,6 +19,12 @@ pub struct Pool {
     slots: i32,
 }
 
+impl Data for Pool {
+    fn get_id(&self) -> &str {
+        &self.name
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PoolCollection {
     pools: Vec<Pool>,
@@ -34,8 +41,8 @@ impl PoolCollection {
 }
 
 impl ModelAirflow for PoolCollection {
-    fn get_endpoint(&self) -> &str {
-        "/api/v1/pools"
+    fn get_endpoint(&self, params: Option<String>) -> String {
+        String::from("/api/v1/pools")
     }
 
     fn deserialize(&mut self, res: &str) {
@@ -62,5 +69,9 @@ impl ModelAirflow for PoolCollection {
             ]));
         }
         rows
+    }
+
+    fn get_element(&self, id: usize) -> Option<Box<&dyn Data>> {
+        Some(Box::new(&self.pools[id]))
     }
 }

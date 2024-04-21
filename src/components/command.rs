@@ -1,3 +1,5 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
 use std::{collections::HashMap, time::Duration, vec};
 use tokio::sync::MutexGuard;
 
@@ -66,6 +68,7 @@ impl Component for Command {
         &mut self,
         action: Action,
         context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
     ) -> Result<Option<Action>> {
         Ok(None)
     }
@@ -75,6 +78,8 @@ impl Component for Command {
         f: &mut Frame<'_>,
         area: Rect,
         context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
     ) -> Result<()> {
         // draw the search bar
         let line = Line::from(vec![if let Some(command) = &self.command {

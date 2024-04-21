@@ -1,3 +1,6 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::table::table::{Table, Tables};
+use crate::mode::ObservableMode;
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -27,7 +30,6 @@ pub mod fps;
 pub mod shortcut;
 pub mod status_bar;
 pub mod table;
-pub mod table_dag_runs;
 
 /// `Component` is a trait that represents a visual and interactive element of the user interface.
 /// Implementors of this trait can be registered with the main application loop and will be able to receive events,
@@ -80,7 +82,13 @@ pub trait Component {
     /// # Returns
     ///
     /// * `Result<Option<Action>>` - An action to be processed or none.
-    fn handle_events(&mut self, event: Option<&Event>, context_data: &MutexGuard<'_, ContextData>, mode: Mode) -> Result<Option<Action>> {
+    fn handle_events(
+        &mut self,
+        event: Option<&Event>,
+        context_data: &mut MutexGuard<'_, ContextData>,
+        mode: &ObservableMode,
+        tables: &mut Tables,
+    ) -> Result<Option<Action>> {
         let r = match event {
             Some(Event::Key(key_event)) => self.handle_key_events(key_event)?,
             Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event)?,
@@ -141,6 +149,7 @@ pub trait Component {
         &mut self,
         action: Action,
         context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
     ) -> Result<Option<Action>> {
         Ok(None)
     }
@@ -159,6 +168,8 @@ pub trait Component {
         f: &mut Frame<'_>,
         area: Rect,
         context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
     ) -> Result<()>;
 }
 
@@ -237,6 +248,7 @@ impl LinkedComponent {
         get_chunk: F,
         mode: Mode,
         context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
     ) -> Result<()>
     where
         F: Fn(&Chunk) -> Rect,
@@ -253,7 +265,9 @@ impl LinkedComponent {
                     continue;
                 }
             }
-            node.value.borrow_mut().draw(f, area, context_data)?;
+            node.value
+                .borrow_mut()
+                .draw(f, area, context_data, table, mode)?;
             current = node.next.clone();
         }
         Ok(())
@@ -283,12 +297,18 @@ impl LinkedComponent {
         }
     }
 
-    pub fn handle_events(&self, option: Option<&Event>, context_data: &MutexGuard<'_, ContextData>, mode: Mode) -> Result<Option<Action>> {
+    pub fn handle_events(
+        &self,
+        option: Option<&Event>,
+        context_data: &mut MutexGuard<'_, ContextData>,
+        mode: &ObservableMode,
+        tables: &mut Tables,
+    ) -> Result<Option<Action>> {
         let mut current: Option<Rc<RefCell<NodeComponent>>> = self.head.clone();
         while let Some(node) = current {
             let node: Ref<NodeComponent> = node.borrow();
             let mut component = node.value.borrow_mut();
-            let action = component.handle_events(option, context_data, mode)?;
+            let action = component.handle_events(option, context_data, mode, tables)?;
             current = node.next.clone();
             if current.is_none() && action.is_some() {
                 return Ok(action);
@@ -301,12 +321,13 @@ impl LinkedComponent {
         &self,
         action: Action,
         context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
     ) -> Result<Option<Action>> {
         let mut current: Option<Rc<RefCell<NodeComponent>>> = self.head.clone();
         while let Some(node) = current {
             let node: Ref<NodeComponent> = node.borrow();
             let mut component = node.value.borrow_mut();
-            component.update(action.clone(), context_data);
+            component.update(action.clone(), context_data, tables);
             current = node.next.clone();
             if current.is_none() {
                 return Ok(Some(action));

@@ -1,3 +1,5 @@
+pub mod dag_run;
 pub mod main;
 pub mod pool;
-mod table;
+pub mod table;
+pub mod task;
