@@ -1,4 +1,5 @@
 use crate::components::table::table::LinkedTable;
+use crate::models::model_airflow::ModelView;
 use crate::components::table::table::Tables;
 use crossterm::event::KeyCode::Char;
 use std::cell::RefCell;
@@ -55,6 +56,7 @@ pub struct App {
     pub last_dag_runs_call: Instant,
     pub last_task_call: Option<Instant>,
     pub context_data: Arc<tokio::sync::Mutex<ContextData>>,
+    pub context_data_bis: ContextData,
     client: Client,
     linked_components: LinkedComponent,
     tables: Tables,
@@ -101,6 +103,7 @@ impl App {
             last_dag_runs_call: Instant::now(),
             last_task_call: None,
             context_data: Arc::new(tokio::sync::Mutex::new(ContextData::new())),
+            context_data_bis: ContextData::new(),
             client,
             linked_components,
             tables,
@@ -153,6 +156,8 @@ impl App {
             lock.handle_airflow_config(airflow_config);
         });
 
+        self.context_data_bis.handle_airflow_config(self.config.airflow.clone());
+
         let context_data_ref = Arc::clone(&self.context_data);
         let airflow_config = self.config.airflow.clone();
         let mode = self.observable_mode.get().clone();
@@ -177,16 +182,18 @@ impl App {
                         _ => {}
                     },
                     tui::Event::Refresh => {
+                        /*
                         let context_data_ref = Arc::clone(&self.context_data);
                         let airflow_config = self.config.airflow.clone();
                         let mode = self.observable_mode.get().clone();
-                        let test: String = tokio::spawn(async move {
+                        tokio::spawn(async move {
                             let mut lock = context_data_ref.lock().await;
-                            let test = lock.refresh(mode).await;
+                            lock.refresh(mode).await.unwrap()
                         })
-                        .await
-                        .unwrap();
-                        panic!("{} test);
+                        .await?;
+                        */
+                        let test = self.context_data_bis.refresh(self.observable_mode.get());
+                        panic!("{}", test.await.unwrap().unwrap().rows.len());
                     }
                     _ => {}
                 }
@@ -252,7 +259,7 @@ impl App {
                                     &context_data_lock,
                                     &table,
                                 )
-                                .expect("Failed to draw components");
+                                .expect("Failed to draw components ");
                         })?;
                     }
                     Action::Mode(mode) => {
