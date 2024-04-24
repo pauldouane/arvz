@@ -133,13 +133,15 @@ impl Component for MainTable {
                             self.state.select(None);
                         }
                         KeyCode::Esc => {
-                            if let Some(previous) = self.previous_mode {
-                                self.history.pop();
-                                self.command_tx
-                                    .as_ref()
-                                    .unwrap()
-                                    .send(Action::PreviousMode(previous));
-                                self.state.select(None);
+                            if mode.get() != self.history[0] {
+                                if let Some(previous) = self.previous_mode {
+                                    self.history.pop();
+                                    self.command_tx
+                                        .as_ref()
+                                        .unwrap()
+                                        .send(Action::PreviousMode(previous));
+                                    self.state.select(None);
+                                }
                             }
                         }
                         _ => {

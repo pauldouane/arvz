@@ -109,9 +109,18 @@ impl App {
 
     pub async fn run(&mut self) -> Result<()> {
         let (action_tx, mut action_rx) = mpsc::unbounded_channel();
+        let (data_tx, mut data_rx) = mpsc::unbounded_channel::<String>();
         let mut tui = tui::Tui::new()?;
         // tui.mouse(true);
         tui.enter()?;
+
+        let context_data_ref = Arc::clone(&self.context_data);
+        let airflow_config = self.config.airflow.clone();
+        let mode = self.observable_mode.get().clone();
+        tokio::spawn(async move {
+            let mut lock = context_data_ref.lock().await;
+            lock.refresh(mode).await;
+        });
 
         // Set tui_size for the main_layout
         self.main_layout
@@ -144,6 +153,18 @@ impl App {
             lock.handle_airflow_config(airflow_config);
         });
 
+        let context_data_ref = Arc::clone(&self.context_data);
+        let airflow_config = self.config.airflow.clone();
+        let mode = self.observable_mode.get().clone();
+        tokio::spawn(async move {
+            let mut lock = context_data_ref.lock().await;
+            lock.refresh(mode).await;
+        });
+
+        tokio::spawn(async move {
+            data_tx.send(String::from("TEST"));
+        });
+
         loop {
             if let Some(e) = tui.next().await {
                 match e {
@@ -159,10 +180,11 @@ impl App {
                         let context_data_ref = Arc::clone(&self.context_data);
                         let airflow_config = self.config.airflow.clone();
                         let mode = self.observable_mode.get().clone();
-                        tokio::spawn(async move {
+                        let test: String = tokio::spawn(async move {
                             let mut lock = context_data_ref.lock().await;
                             lock.refresh(mode).await;
-                        });
+                        }).await.unwrap();
+                        panic!("{}", test);
                     }
                     _ => {}
                 }
