@@ -23,7 +23,7 @@ impl ModelAirflow for DagRuns {
     }
 
     fn deserialize(&mut self, res: &str) {
-        *self = serde_json::from_str::<DagRuns>(res).expect("rgge")
+        *self = serde_json::from_str::<DagRuns>(res).expect("rgge");
     }
 
     fn get_total_entries(&self) -> i32 {
@@ -47,5 +47,9 @@ impl ModelAirflow for DagRuns {
 
     fn get_element(&self, id: usize) -> Option<Box<&dyn Data>> {
         Some(Box::new(&self.dag_runs[id]))
+    }
+
+    fn get_view_model(&self) -> super::model_airflow::ModelView {
+        todo!()
     }
 }

@@ -2,6 +2,7 @@ use crate::config::{Airflow, Config};
 use crate::mode::Mode;
 use crate::models::dag_runs::DagRuns;
 use crate::models::model_airflow::ModelAirflow;
+use crate::models::model_airflow::ModelView;
 use crate::models::tasks::Tasks;
 use color_eyre::Result;
 use reqwest::Client;
@@ -53,15 +54,24 @@ impl ContextData {
         }
     }
 
-    pub fn get_deserialize(&mut self, mode: Mode, data: &str) {
+    pub fn get_deserialize(&mut self, mode: Mode, data: &str) -> Result<Option<ModelView>> {
         match mode {
-            Mode::Pool => self.pool_collection.as_mut().unwrap().deserialize(&data),
-            Mode::Task => self.task_instances.as_mut().unwrap().deserialize(&data),
+            Mode::Pool => {
+                self.pool_collection.as_mut().unwrap().deserialize(&data);
+                return Ok(Some(
+                    self.pool_collection.as_mut().unwrap().get_view_model(),
+                ));
+            }
+            Mode::Task => {
+                self.task_instances.as_mut().unwrap().deserialize(&data);
+                return Ok(Some(self.task_instances.as_mut().unwrap().get_view_model()));
+            }
             _ => log::error!("Mode not known"),
         };
+        Ok(None)
     }
 
-    pub async fn refresh(&mut self, mode: Mode) -> Result<()> {
+    pub async fn refresh(&mut self, mode: Mode) -> Result<Option<ModelView>> {
         let model = self.get_model_by_mode(mode).unwrap();
         let data = self
             .client
@@ -80,8 +90,6 @@ impl ContextData {
             .await?
             .text()
             .await?;
-        log::info!("{:?}", mode);
-        self.get_deserialize(mode, &data);
-        Ok(())
+        Ok(self.get_deserialize(mode, &data).unwrap())
     }
 }

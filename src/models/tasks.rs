@@ -9,6 +9,8 @@ use ratatui::widgets::Row;
 use reqwest::Client;
 use serde::Deserialize;
 
+use super::model_airflow::ModelView;
+
 #[derive(Debug, Default, Deserialize)]
 pub struct Tasks {
     pub task_instances: Vec<Task>,
@@ -34,7 +36,7 @@ impl ModelAirflow for Tasks {
     }
 
     fn deserialize(&mut self, res: &str) {
-        *self = serde_json::from_str::<Tasks>(res).expect("rgge")
+        *self = serde_json::from_str::<Tasks>(res).expect("rgge");
     }
 
     fn get_total_entries(&self) -> i32 {
@@ -74,5 +76,11 @@ impl ModelAirflow for Tasks {
 
     fn get_element(&self, id: usize) -> Option<Box<&dyn Data>> {
         Some(Box::new(&self.task_instances[id]))
+    }
+
+    fn get_view_model(&self) -> super::model_airflow::ModelView {
+        ModelView {
+            rows: self.get_rows(),
+        }
     }
 }

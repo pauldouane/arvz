@@ -1,5 +1,6 @@
 use crate::models::model_airflow::Data;
 use crate::models::model_airflow::ModelAirflow;
+use crate::models::model_airflow::ModelView;
 use ratatui::widgets::Row;
 use reqwest::{Error, Response};
 use serde::Deserialize;
@@ -46,7 +47,7 @@ impl ModelAirflow for PoolCollection {
     }
 
     fn deserialize(&mut self, res: &str) {
-        *self = serde_json::from_str::<PoolCollection>(res).expect("rgge")
+        *self = serde_json::from_str::<PoolCollection>(res).expect("rgge");
     }
 
     fn get_total_entries(&self) -> i32 {
@@ -73,5 +74,11 @@ impl ModelAirflow for PoolCollection {
 
     fn get_element(&self, id: usize) -> Option<Box<&dyn Data>> {
         Some(Box::new(&self.pools[id]))
+    }
+
+    fn get_view_model(&self) -> super::model_airflow::ModelView {
+        ModelView {
+            rows: self.get_rows(),
+        }
     }
 }

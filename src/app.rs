@@ -182,9 +182,11 @@ impl App {
                         let mode = self.observable_mode.get().clone();
                         let test: String = tokio::spawn(async move {
                             let mut lock = context_data_ref.lock().await;
-                            lock.refresh(mode).await;
-                        }).await.unwrap();
-                        panic!("{}", test);
+                            let test = lock.refresh(mode).await;
+                        })
+                        .await
+                        .unwrap();
+                        panic!("{} test);
                     }
                     _ => {}
                 }
