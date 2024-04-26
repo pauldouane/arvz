@@ -1,6 +1,6 @@
 use crate::components::table::table::LinkedTable;
-use crate::models::model_airflow::ModelView;
 use crate::components::table::table::Tables;
+use crate::models::model_airflow::ModelView;
 use crossterm::event::KeyCode::Char;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -112,7 +112,7 @@ impl App {
 
     pub async fn run(&mut self) -> Result<()> {
         let (action_tx, mut action_rx) = mpsc::unbounded_channel();
-        let (data_tx, mut data_rx) = mpsc::unbounded_channel::<String>();
+        let (mut data_tx, mut data_rx) = mpsc::unbounded_channel::<Option<&ModelView>>();
         let mut tui = tui::Tui::new()?;
         // tui.mouse(true);
         tui.enter()?;
@@ -156,8 +156,6 @@ impl App {
             lock.handle_airflow_config(airflow_config);
         });
 
-        self.context_data_bis.handle_airflow_config(self.config.airflow.clone());
-
         let context_data_ref = Arc::clone(&self.context_data);
         let airflow_config = self.config.airflow.clone();
         let mode = self.observable_mode.get().clone();
@@ -166,9 +164,8 @@ impl App {
             lock.refresh(mode).await;
         });
 
-        tokio::spawn(async move {
-            data_tx.send(String::from("TEST"));
-        });
+        self.context_data_bis
+            .handle_airflow_config(self.config.airflow.clone());
 
         loop {
             if let Some(e) = tui.next().await {
@@ -182,21 +179,12 @@ impl App {
                         _ => {}
                     },
                     tui::Event::Refresh => {
-                        /*
-                        let context_data_ref = Arc::clone(&self.context_data);
-                        let airflow_config = self.config.airflow.clone();
-                        let mode = self.observable_mode.get().clone();
-                        tokio::spawn(async move {
-                            let mut lock = context_data_ref.lock().await;
-                            lock.refresh(mode).await.unwrap()
-                        })
-                        .await?;
-                        */
-                        let test = self.context_data_bis.refresh(self.observable_mode.get());
-                        panic!("{}", test.await.unwrap().unwrap().rows.len());
+                        let test = self.context_data_bis.refresh(mode).await.unwrap();
+                        data_tx.send(test);
                     }
                     _ => {}
                 }
+
                 let context_data_ref = Arc::clone(&self.context_data);
                 let mut lock = context_data_ref.lock().await;
                 match self.linked_components.handle_events(

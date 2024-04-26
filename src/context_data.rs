@@ -8,6 +8,7 @@ use color_eyre::Result;
 use reqwest::Client;
 use std::cell::RefCell;
 use std::rc::Rc;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::models::pool::{Pool, PoolCollection};
 
@@ -54,7 +55,7 @@ impl ContextData {
         }
     }
 
-    pub fn get_deserialize(&mut self, mode: Mode, data: &str) -> Result<Option<ModelView>> {
+    pub fn get_deserialize<'a>(&mut self, mode: Mode, data: &str) -> Result<Option<ModelView>> {
         match mode {
             Mode::Pool => {
                 self.pool_collection.as_mut().unwrap().deserialize(&data);
@@ -71,7 +72,7 @@ impl ContextData {
         Ok(None)
     }
 
-    pub async fn refresh(&mut self, mode: Mode) -> Result<Option<ModelView>> {
+    pub async fn refresh<'a>(&'a mut self, mode: Mode) -> Result<Option<&'a ModelView>> {
         let model = self.get_model_by_mode(mode).unwrap();
         let data = self
             .client
@@ -90,6 +91,28 @@ impl ContextData {
             .await?
             .text()
             .await?;
-        Ok(self.get_deserialize(mode, &data).unwrap())
+        Ok(None)
+    }
+
+    pub async fn refresh_bis(&mut self, mode: Mode) -> color_eyre::Result<()> {
+        let model = self.get_model_by_mode(mode).unwrap();
+        let data = self
+            .client
+            .get(
+                self.airflow_config.host.as_str().to_owned()
+                    + &model
+                        .as_ref()
+                        .expect("Unable to get ref of the model")
+                        .get_endpoint(self.params.clone()),
+            )
+            .basic_auth(
+                &self.airflow_config.username,
+                Some(&self.airflow_config.password),
+            )
+            .send()
+            .await?
+            .text()
+            .await?;
+        Ok(())
     }
 }
