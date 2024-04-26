@@ -1,5 +1,6 @@
 use crate::config::Airflow;
 use crate::models::conf::Conf;
+use crate::models::model_airflow::Data;
 use crate::models::tasks::Tasks;
 use color_eyre::eyre::Result;
 use reqwest::{Client, StatusCode};
@@ -70,5 +71,11 @@ impl DagRun {
             return Ok(source_code);
         }
         Ok(String::from(""))
+    }
+}
+
+impl Data for DagRun {
+    fn get_id(&self) -> &str {
+        &self.dag_id
     }
 }

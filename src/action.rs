@@ -1,3 +1,4 @@
+use crate::mode::Mode;
 use std::{fmt, string::ToString};
 
 use serde::{
@@ -16,7 +17,12 @@ pub enum Action {
     Quit,
     Refresh,
     Error(String),
+    NextTable,
+    Mode(Mode),
+    NextMode(Mode),
+    PreviousMode(Mode),
     Help,
+    Pool,
     DagRun,
     Code,
     Clear,

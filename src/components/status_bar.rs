@@ -1,4 +1,7 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
 use std::{collections::HashMap, time::Duration, vec};
+use tokio::sync::MutexGuard;
 
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
@@ -12,6 +15,7 @@ use tracing_subscriber::fmt::format;
 
 use super::{Component, Frame};
 use crate::config::key_event_to_string;
+use crate::context_data::ContextData;
 use crate::mode::Mode;
 use crate::{
     action::Action,
@@ -52,12 +56,24 @@ impl Component for StatusBar {
         Ok(())
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
+    ) -> Result<Option<Action>> {
         {}
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        area: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
+    ) -> Result<()> {
         // Create a new block with self.mode_breadcrumb.len() + 1 columns
         // Space between each column is 10
         self.mode_breadcrumb.push(self.mode);
@@ -76,14 +92,19 @@ impl Component for StatusBar {
             for (i, mode) in self.mode_breadcrumb.iter().enumerate() {
                 let para = Paragraph::new(format!("<{:?}>", mode))
                     .alignment(Alignment::Center)
-                    .style(Style::default().fg(Color::DarkGray).bg(Color::Yellow));
+                    .style(Style::default().fg(Color::Black).bg(Color::Yellow));
                 f.render_widget(para, block[i]);
             }
         }
 
         let para = Paragraph::new(format!("<{:?}>", self.mode))
             .alignment(Alignment::Center)
-            .style(Style::default().fg(Color::DarkGray).bg(Color::LightCyan));
+            .style(
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::LightCyan)
+                    .add_modifier(Modifier::BOLD),
+            );
         f.render_widget(para, block[self.mode_breadcrumb.len() - 1]);
         self.mode_breadcrumb.pop();
         Ok(())

@@ -1,5 +1,7 @@
 use crate::config::Airflow;
 use crate::models::dag_runs::DagRuns;
+use crate::models::model_airflow::Data;
+use crate::models::model_airflow::ModelAirflow;
 use crate::models::task::Task;
 use crate::style;
 use color_eyre::eyre::Result;
@@ -7,25 +9,41 @@ use ratatui::widgets::Row;
 use reqwest::Client;
 use serde::Deserialize;
 
+use super::model_airflow::ModelView;
+
 #[derive(Debug, Default, Deserialize)]
 pub struct Tasks {
     pub task_instances: Vec<Task>,
-    pub total_entries: u32,
+    pub total_entries: i32,
 }
 
 impl Tasks {
-    pub fn new() -> Result<Self> {
-        Ok(Self {
+    pub fn new() -> Tasks {
+        Tasks {
             task_instances: vec![],
             total_entries: 0,
-        })
+        }
+    }
+}
+
+impl ModelAirflow for Tasks {
+    fn get_endpoint(&self, params: Option<String>) -> String {
+        let mut endpoint = String::from("/api/v1/dags/~/dagRuns/~/taskInstances");
+        if let Some(params) = params {
+            endpoint.push_str(format!("?pool={}", params).as_str());
+        }
+        endpoint
     }
 
-    pub fn get_total_entries(&self) -> u32 {
+    fn deserialize(&mut self, res: &str) {
+        *self = serde_json::from_str::<Tasks>(res).expect("rgge");
+    }
+
+    fn get_total_entries(&self) -> i32 {
         self.total_entries
     }
 
-    pub fn get_tasks_row(&self) -> Vec<Row> {
+    fn get_rows(&self) -> Vec<Row> {
         let mut rows: Vec<Row> = Vec::new();
 
         for task in &self.task_instances {
@@ -54,5 +72,15 @@ impl Tasks {
             );
         }
         rows
+    }
+
+    fn get_element(&self, id: usize) -> Option<Box<&dyn Data>> {
+        Some(Box::new(&self.task_instances[id]))
+    }
+
+    fn get_view_model(&self) -> super::model_airflow::ModelView {
+        ModelView {
+            rows: self.get_rows(),
+        }
     }
 }

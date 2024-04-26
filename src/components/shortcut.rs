@@ -1,4 +1,7 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
 use std::{collections::HashMap, time::Duration, vec};
+use tokio::sync::MutexGuard;
 
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
@@ -12,13 +15,14 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use super::{Component, Frame};
 use crate::config::key_event_to_string;
+use crate::context_data::ContextData;
 use crate::mode::Mode;
 use crate::{
     action::Action,
     config::{Config, KeyBindings},
 };
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Shortcut {
     command_tx: Option<UnboundedSender<Action>>,
     config: Config,
@@ -27,7 +31,11 @@ pub struct Shortcut {
 
 impl Shortcut {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            command_tx: None,
+            config: Config::default(),
+            mode: Mode::Pool,
+        }
     }
 
     pub fn register_mode(&mut self, mode: Mode) {
@@ -46,15 +54,26 @@ impl Component for Shortcut {
         Ok(())
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+
+        tables: &MutexGuard<'_, LinkedTable>,
+    ) -> Result<Option<Action>> {
         {}
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-        // Loop through keybindings by mode and display them
-        // Get the number of keybindings for the current mode
-        let num_keybindings = self.config.keybindings.get(&self.mode).unwrap().len() as f64;
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        area: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
+    ) -> Result<()> {
+        let num_keybindings = 10f64;
 
         let number_of_columns = (num_keybindings / 6f64).ceil() as u16;
 

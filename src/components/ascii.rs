@@ -1,5 +1,10 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
+use crate::mode::Mode;
 use std::{collections::HashMap, time::Duration};
+use tokio::sync::MutexGuard;
 
+use crate::context_data::ContextData;
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -47,12 +52,24 @@ impl Component for Ascii {
         Ok(())
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
+    ) -> Result<Option<Action>> {
         {}
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        area: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
+    ) -> Result<()> {
         let block = Paragraph::new(self.ascii)
             .block(Block::new())
             .style(Style::default().fg(Color::Magenta));

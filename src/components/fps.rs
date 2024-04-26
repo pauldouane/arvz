@@ -1,9 +1,14 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
+use crate::mode::Mode;
 use std::time::Instant;
+use tokio::sync::MutexGuard;
 
 use color_eyre::eyre::Result;
 use ratatui::{prelude::*, widgets::*};
 
 use super::Component;
+use crate::context_data::ContextData;
 use crate::{action::Action, tui::Frame};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,7 +66,12 @@ impl FpsCounter {
 }
 
 impl Component for FpsCounter {
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
+    ) -> Result<Option<Action>> {
         if let Action::Tick = action {
             self.app_tick()?
         };
@@ -71,7 +81,14 @@ impl Component for FpsCounter {
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()> {
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        rect: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
+    ) -> Result<()> {
         Ok(())
     }
 }

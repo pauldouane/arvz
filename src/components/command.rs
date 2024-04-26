@@ -1,4 +1,7 @@
+use crate::components::table::table::LinkedTable;
+use crate::components::Table;
 use std::{collections::HashMap, time::Duration, vec};
+use tokio::sync::MutexGuard;
 
 use color_eyre::eyre::Result;
 use color_eyre::owo_colors::OwoColorize;
@@ -11,6 +14,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use super::{Component, Frame};
 use crate::config::key_event_to_string;
+use crate::context_data::ContextData;
 use crate::mode::Mode;
 use crate::utils::get_user_input_by_key;
 use crate::{
@@ -53,18 +57,30 @@ impl Component for Command {
         Ok(())
     }
 
-    fn handle_key_events(&mut self, key: KeyEvent) -> Result<Option<Action>> {
+    fn handle_key_events(&mut self, key: &KeyEvent) -> Result<Option<Action>> {
         if self.mode == Mode::Command {
             get_user_input_by_key(key.code, &mut self.command);
         }
         Ok(None)
     }
 
-    fn update(&mut self, action: Action) -> Result<Option<Action>> {
+    fn update(
+        &mut self,
+        action: Action,
+        context_data: &MutexGuard<'_, ContextData>,
+        tables: &MutexGuard<'_, LinkedTable>,
+    ) -> Result<Option<Action>> {
         Ok(None)
     }
 
-    fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
+    fn draw(
+        &mut self,
+        f: &mut Frame<'_>,
+        area: Rect,
+        context_data: &MutexGuard<'_, ContextData>,
+        table: &MutexGuard<'_, dyn Table>,
+        mode: Mode,
+    ) -> Result<()> {
         // draw the search bar
         let line = Line::from(vec![if let Some(command) = &self.command {
             Span::raw(command)

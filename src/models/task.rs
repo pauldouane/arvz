@@ -1,5 +1,6 @@
 use crate::config::Airflow;
 use crate::models::log::Log;
+use crate::models::model_airflow::Data;
 use color_eyre::eyre::Result;
 use reqwest::Client;
 use serde::Deserialize;
@@ -129,5 +130,11 @@ impl Task {
             .text()
             .await?;
         Ok(logs)
+    }
+}
+
+impl Data for Task {
+    fn get_id(&self) -> &str {
+        &self.task_id
     }
 }

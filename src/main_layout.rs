@@ -7,9 +7,10 @@ use ratatui::Frame;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[derive(Debug)]
 pub enum Chunk {
     Context(usize),
-    Command,
+    CommandChunk,
     Table,
     Status,
 }
@@ -64,7 +65,6 @@ impl MainLayout {
                 Layout::default()
                     .direction(Direction::Vertical)
                     .constraints(self.get_constraints(mode))
-                    .margin(1)
                     .split(*tui_size.borrow_mut()),
             );
         }
@@ -100,10 +100,10 @@ impl MainLayout {
         }
     }
 
-    pub fn get_chunk(&self, chunk: Chunk) -> Rect {
+    pub fn get_chunk(&self, chunk: &Chunk) -> Rect {
         match chunk {
-            Chunk::Context(area) => self.context_chunk.clone().unwrap()[area],
-            Chunk::Command => self.command_chunk.clone().unwrap()[0],
+            Chunk::Context(area) => self.context_chunk.clone().unwrap()[*area],
+            Chunk::CommandChunk => self.command_chunk.clone().unwrap()[0],
             Chunk::Table => self.table_chunk.clone().unwrap()[0],
             Chunk::Status => self.status_chunk.clone().unwrap()[0],
         }

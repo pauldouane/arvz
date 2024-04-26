@@ -28,7 +28,7 @@ pub fn io() -> IO {
 }
 pub type Frame<'a> = ratatui::Frame<'a>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
     Init,
     Quit,
@@ -42,6 +42,7 @@ pub enum Event {
     Key(KeyEvent),
     Mouse(MouseEvent),
     Resize(u16, u16),
+    Refresh,
 }
 
 pub struct Tui {
@@ -54,6 +55,7 @@ pub struct Tui {
     pub tick_rate: f64,
     pub mouse: bool,
     pub paste: bool,
+    pub current_event: Option<Event>,
 }
 
 impl Tui {
@@ -76,6 +78,7 @@ impl Tui {
             tick_rate,
             mouse,
             paste,
+            current_event: None,
         })
     }
 
@@ -110,6 +113,7 @@ impl Tui {
             let mut reader = crossterm::event::EventStream::new();
             let mut tick_interval = tokio::time::interval(tick_delay);
             let mut render_interval = tokio::time::interval(render_delay);
+            let mut refresh_interval = tokio::time::interval(Duration::from_secs(5));
             _event_tx.send(Event::Init).unwrap();
             loop {
                 let tick_delay = tick_interval.tick();
@@ -156,6 +160,9 @@ impl Tui {
                   },
                   _ = render_delay => {
                       _event_tx.send(Event::Render).unwrap();
+                  },
+                  _ = refresh_interval.tick() => {
+                      _event_tx.send(Event::Refresh).unwrap();
                   },
                 }
             }
@@ -225,7 +232,9 @@ impl Tui {
     }
 
     pub async fn next(&mut self) -> Option<Event> {
-        self.event_rx.recv().await
+        let event = self.event_rx.recv().await;
+        self.current_event = event.clone();
+        event
     }
 
     pub fn get_main_constraint(&self, mode: Mode) -> [Constraint; 4] {

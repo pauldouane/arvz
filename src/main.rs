@@ -7,6 +7,7 @@ pub mod app;
 pub mod cli;
 pub mod components;
 pub mod config;
+mod context_data;
 pub mod main_layout;
 pub mod mode;
 pub mod models;
